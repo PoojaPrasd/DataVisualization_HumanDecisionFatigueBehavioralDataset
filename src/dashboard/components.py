@@ -23,13 +23,19 @@ CATEGORY_ORDERS = {
     'Gym_Group': ['No Activity', 'Low Activity', 'Moderate Activity', 'High Activity'],
     'Time_of_Day': ['Morning', 'Afternoon', 'Evening', 'Night'],
     'Experience_Group': ['New (0-3)', 'Mid-level (3-7)', 'Senior (7-15)', 'Veteran (15+)'],
+    'Hydration_Group': ['Low Hydration', 'Balanced Hydration', 'High Hydration'],
+    'Sugar_Group': ['No Snacks', 'Moderate Snacks', 'High Snacks'],
+    'Break_Group': ['Few Breaks', 'Moderate Breaks', 'Frequent Breaks'],
     'Behavioural_Archetype': ['Collaborative / Balanced', 'Low Engagement', 'Stressed / Isolated'],
     'Anomaly_Cohort': [
         'Expected trend',
+        'Routine stable pocket',
         'Night peer-support buffer',
         'Veteran stress resilience',
         'Active high-density resilience',
+        'Recovery pacing pocket',
         'Masked continue risk',
+        'Overload failure pocket',
     ],
 }
 COLOR_MAPS = {
@@ -280,17 +286,23 @@ def create_load_error_scatter(df, color_by=None, target_col='Error_Rate'):
                      title=f'Cognitive Load vs {_label(target_col)}')
     return _apply_theme(fig)
 
-def create_stress_fatigue_quadrant(df, target_col='Error_Rate'):
-    df_plot = df.dropna(subset=['Stress_Level_1_10', 'Error_Rate'])
+def create_stress_fatigue_quadrant(df, target_col='Error_Rate', axis_ranges=None):
+    df_plot = df.dropna(subset=['Decision_Density', 'Cognitive_Load_Score'])
     df_plot = df_plot.copy()
-    df_plot['Log_Error_Rate'] = np.log10(df_plot['Error_Rate'].clip(lower=0) + 0.001)
-    fig = px.density_contour(df_plot, x='Stress_Level_1_10', y='Log_Error_Rate',
+    fig = px.density_contour(df_plot, x='Decision_Density', y='Cognitive_Load_Score',
                              color_discrete_sequence=['#2C3E50'],
-                             labels={'Stress_Level_1_10': 'Stress Level (1-10)',
-                                     'Log_Error_Rate': 'log10(Error Rate + 0.001)'},
-                             title='Density Map: Stress vs log(Error Rate)')
+                             labels={'Decision_Density': 'Decisions per Hour Awake',
+                                     'Cognitive_Load_Score': 'Cognitive Load Score'},
+                             title='Density Map: Decision Density vs Cognitive Load')
     fig.update_traces(contours_coloring="fill", contours_showlabels=False)
-    return _apply_theme(fig)
+    fig = _apply_theme(fig)
+    if axis_ranges:
+        x_range, y_range = axis_ranges
+        if x_range:
+            fig.update_xaxes(range=list(x_range))
+        if y_range:
+            fig.update_yaxes(range=list(y_range))
+    return fig
 
 def create_sleep_fatigue_trend(df, color_by=None, target_col='Decision_Fatigue_Score'):
     target_col = target_col if target_col in df else 'Decision_Fatigue_Score'
@@ -470,62 +482,67 @@ def create_experience_stress_boxplot(df, color_by=None, target_col='Stress_Level
 
 def create_perfect_storm_heatmap(df, target_col='Error_Rate'):
     target_col = target_col if target_col in df else 'Error_Rate'
-    df_plot = df.dropna(subset=['Stress_Group', 'Sleep_Group', target_col])
+    df_plot = df.dropna(subset=['Caffeine_Group', 'Hydration_Group', target_col])
     df_plot = _prepare_ordered_categories(df_plot)
-    fig = px.density_heatmap(df_plot, x='Stress_Group', y='Sleep_Group',
+    fig = px.density_heatmap(df_plot, x='Caffeine_Group', y='Hydration_Group',
                              z=target_col, histfunc='avg',
-                             color_continuous_scale='Reds',
-                             category_orders=_category_orders('Stress_Group', 'Sleep_Group'),
-                             labels={'Stress_Group': 'Stress Level', 'Sleep_Group': 'Sleep Group',
+                             color_continuous_scale='Viridis',
+                             category_orders=_category_orders('Caffeine_Group', 'Hydration_Group'),
+                             labels={'Caffeine_Group': 'Caffeine Intake',
+                                     'Hydration_Group': 'Hydration Balance',
                                      target_col: f'Avg {_label(target_col)}'},
-                             title=f'Stress and Sleep vs {_label(target_col)}')
+                             title=f'Caffeine and Hydration vs {_label(target_col)}')
     fig = _apply_theme(fig)
-    fig.update_xaxes(categoryorder='array', categoryarray=CATEGORY_ORDERS['Stress_Group'])
-    fig.update_yaxes(categoryorder='array', categoryarray=CATEGORY_ORDERS['Sleep_Group'])
+    fig.update_xaxes(categoryorder='array', categoryarray=CATEGORY_ORDERS['Caffeine_Group'])
+    fig.update_yaxes(categoryorder='array', categoryarray=CATEGORY_ORDERS['Hydration_Group'])
     return fig
 
 def create_risk_index_scatter(df, color_by=None, target_col='Error_Rate'):
     target_col = target_col if target_col in df else 'Error_Rate'
-    df_plot = df.dropna(subset=['Hydration_Ratio', 'Break_Room_Entry_Count', target_col, 'System_Recommendation'])
+    df_plot = df.dropna(subset=['Break_Group', target_col, 'System_Recommendation'])
     df_plot = _prepare_ordered_categories(df_plot)
-    fig = px.scatter(df_plot, x='Hydration_Ratio', y=target_col,
-                     size='Break_Room_Entry_Count',
-                     **_color_kwargs(df_plot, 'System_Recommendation', sys_rec_colors, color_by),
-                     opacity=0.7, render_mode='webgl',
-                     category_orders=_category_orders('System_Recommendation', color_by),
-                     labels={'Hydration_Ratio': 'Hydration Ratio',
-                             'Break_Room_Entry_Count': 'Break Room Entries',
-                             target_col: _label(target_col)},
-                     title=f'Hydration and Break Behavior vs {_label(target_col)}')
-    return _apply_theme(fig)
-
-def create_avg_risk_profile_bar(df, target_col='Fatigue_Risk_Index'):
-    target_col = target_col if target_col in df else 'Fatigue_Risk_Index'
-    df_plot = df.dropna(subset=['System_Recommendation', target_col])
-    df_plot = _prepare_ordered_categories(df_plot)
-    agg = df_plot.groupby('System_Recommendation', observed=False)[target_col].mean().reset_index()
-    fig = px.bar(agg, x='System_Recommendation', y=target_col, color='System_Recommendation',
+    fig = px.box(df_plot, x='Break_Group', y=target_col, color='System_Recommendation',
                  color_discrete_map=sys_rec_colors,
-                 category_orders=_category_orders('System_Recommendation'),
-                 labels={'System_Recommendation': 'System Recommendation',
-                         target_col: f'Avg {_label(target_col)}'},
-                 title=f'Average {_label(target_col)} by Recommendation')
+                 category_orders=_category_orders('Break_Group', 'System_Recommendation'),
+                 labels={'Break_Group': 'Break Frequency',
+                         'System_Recommendation': 'System Recommendation',
+                         target_col: _label(target_col)},
+                 title=f'Break Recovery by Recommendation vs {_label(target_col)}')
     return _apply_theme(fig)
 
-def create_intervention_streamgraph(df, color_by=None):
-    df_plot = df.dropna(subset=['Time_of_Day', 'System_Recommendation', 'Decisions_Made'])
+def create_avg_risk_profile_bar(df, target_col='Error_Rate'):
+    target_col = target_col if target_col in df else 'Error_Rate'
+    df_plot = df.dropna(subset=['Caffeine_Group', 'Sugar_Group', target_col])
     df_plot = _prepare_ordered_categories(df_plot)
-    color_col = color_by if color_by in df_plot.columns else 'System_Recommendation'
-    agg = df_plot.groupby(_unique_columns(['Time_of_Day', color_col]), observed=False)['Decisions_Made'].sum().reset_index()
-    fig = px.area(
-        agg, x='Time_of_Day', y='Decisions_Made',
-        line_group=color_col,
-        **_color_kwargs(agg, 'System_Recommendation', sys_rec_colors, color_col),
-        category_orders=_category_orders('Time_of_Day', 'System_Recommendation', color_col),
-        labels={'Time_of_Day': 'Time of Day', 'Decisions_Made': 'Total Decisions Made'},
-        title='Decision Volume by System Recommendation Over Time'
+    fig = px.density_heatmap(df_plot, x='Caffeine_Group', y='Sugar_Group',
+                 z=target_col, histfunc='avg',
+                 color_continuous_scale='OrRd',
+                 category_orders=_category_orders('Caffeine_Group', 'Sugar_Group'),
+                 labels={'Caffeine_Group': 'Caffeine Intake',
+                         'Sugar_Group': 'Snack Reliance',
+                         target_col: f'Avg {_label(target_col)}'},
+                 title=f'Caffeine and Snacks vs {_label(target_col)}')
+    fig = _apply_theme(fig)
+    fig.update_xaxes(categoryorder='array', categoryarray=CATEGORY_ORDERS['Caffeine_Group'])
+    fig.update_yaxes(categoryorder='array', categoryarray=CATEGORY_ORDERS['Sugar_Group'])
+    return fig
+
+def create_intervention_streamgraph(df, color_by=None, target_col='Error_Rate'):
+    target_col = target_col if target_col in df else 'Error_Rate'
+    df_plot = df.dropna(subset=['Gym_Group', 'Sleep_Group', target_col])
+    df_plot = _prepare_ordered_categories(df_plot)
+    agg = df_plot.groupby(['Gym_Group', 'Sleep_Group'], observed=False)[target_col].mean().reset_index()
+    fig = px.line(
+        agg, x='Gym_Group', y=target_col, color='Sleep_Group',
+        markers=True,
+        color_discrete_map=sleep_group_colors,
+        category_orders=_category_orders('Gym_Group', 'Sleep_Group'),
+        labels={'Gym_Group': 'Gym Activity',
+                'Sleep_Group': 'Sleep Group',
+                target_col: f'Avg {_label(target_col)}'},
+        title=f'Physical Recovery and Sleep vs {_label(target_col)}'
     )
-    fig.update_traces(mode='lines', stackgroup='one', opacity=0.8)
+    fig.update_xaxes(categoryorder='array', categoryarray=CATEGORY_ORDERS['Gym_Group'])
     return _apply_theme(fig)
 
 

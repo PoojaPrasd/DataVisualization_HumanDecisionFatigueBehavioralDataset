@@ -50,6 +50,9 @@ FILTER_COLUMNS = [
     ("Stress_Group", "Stress group"),
     ("Caffeine_Group", "Caffeine group"),
     ("Gym_Group", "Gym group"),
+    ("Hydration_Group", "Hydration group"),
+    ("Sugar_Group", "Snack group"),
+    ("Break_Group", "Break group"),
     ("Self_Reported_Sleep_Quality", "Sleep quality"),
     ("Behavioural_Archetype", "Behavioural archetype"),
     ("Anomaly_Cohort", "Anomaly cohort"),
@@ -63,6 +66,9 @@ COLOR_COLUMNS = [
     ("Stress_Group", "Stress group"),
     ("Caffeine_Group", "Caffeine group"),
     ("Gym_Group", "Gym group"),
+    ("Hydration_Group", "Hydration group"),
+    ("Sugar_Group", "Snack group"),
+    ("Break_Group", "Break group"),
     ("Self_Reported_Sleep_Quality", "Sleep quality"),
     ("Behavioural_Archetype", "Behavioural archetype"),
 ]
@@ -84,13 +90,19 @@ FILTER_VALUE_ORDERS = {
     "Stress_Group": ["Low", "Medium", "High"],
     "Caffeine_Group": ["Low", "Medium", "High"],
     "Gym_Group": ["No Activity", "Low Activity", "Moderate Activity", "High Activity"],
+    "Hydration_Group": ["Low Hydration", "Balanced Hydration", "High Hydration"],
+    "Sugar_Group": ["No Snacks", "Moderate Snacks", "High Snacks"],
+    "Break_Group": ["Few Breaks", "Moderate Breaks", "Frequent Breaks"],
     "Behavioural_Archetype": ["Collaborative / Balanced", "Low Engagement", "Stressed / Isolated"],
     "Anomaly_Cohort": [
         "Expected trend",
+        "Routine stable pocket",
         "Night peer-support buffer",
         "Veteran stress resilience",
         "Active high-density resilience",
+        "Recovery pacing pocket",
         "Masked continue risk",
+        "Overload failure pocket",
     ],
 }
 
@@ -121,17 +133,17 @@ def get_zoom_axis_map(target_col):
         "wellbeing-sleep-target": ("Sleep_Group", target_col),
         "wellbeing-mood-target": ("Mid_Shift_Mood_Score", target_col),
         "risk-load-target": ("Cognitive_Load_Score", target_col),
-        "risk-stress-target": ("Stress_Level_1_10", "Log_Error_Rate"),
+        "risk-stress-target": ("Decision_Density", "Cognitive_Load_Score"),
         "risk-sleep-target": ("Sleep_Group", target_col),
         "risk-recovery-target": ("Gym_Group", "Sleep_Group"),
         "workload-decisions": ("Decisions_Made", target_col),
         "workload-switches": ("Task_Switches", target_col),
         "workload-density": ("Decision_Density", target_col),
         "workload-parallel": (None, None),
-        "intervention-context": ("Stress_Group", "Sleep_Group"),
-        "intervention-line": ("Time_of_Day", "Decisions_Made"),
-        "intervention-scatter": ("Hydration_Ratio", target_col),
-        "intervention-rec-target": ("System_Recommendation", target_col),
+        "intervention-context": ("Caffeine_Group", "Hydration_Group"),
+        "intervention-line": ("Gym_Group", target_col),
+        "intervention-scatter": ("Break_Group", target_col),
+        "intervention-rec-target": ("Caffeine_Group", "Sugar_Group"),
     }
 
 
@@ -211,21 +223,22 @@ def create_filter_sidebar(df):
             "backgroundColor": "#ffffff",
             "borderRadius": "8px",
             "position": "sticky",
-            "top": "8px",
-            "maxHeight": "calc(100vh - 58px)",
+            "top": "58px",
+            "marginTop": "48px",
+            "maxHeight": "calc(100vh - 120px)",
             "overflowY": "auto",
         },
     )
 
 
-def create_tab_contents(df, color_by="System_Recommendation", target_col="Error_Rate"):
+def create_tab_contents(df, color_by="System_Recommendation", target_col="Error_Rate", density_axis_ranges=None):
     fig_wellbeing_1 = create_fatigue_distribution_bar(df, color_by=color_by)
     fig_wellbeing_2 = create_hierarchical_sunburst(df, color_by=color_by)
     fig_wellbeing_3 = create_sleep_target_boxplot(df, color_by=color_by, target_col=target_col)
     fig_wellbeing_4 = create_mood_target_scatter(df, color_by=color_by, target_col=target_col)
 
     fig_risk_1 = create_load_error_scatter(df, color_by=color_by, target_col=target_col)
-    fig_risk_2 = create_stress_fatigue_quadrant(df, target_col=target_col)
+    fig_risk_2 = create_stress_fatigue_quadrant(df, target_col=target_col, axis_ranges=density_axis_ranges)
     fig_risk_3 = create_sleep_fatigue_trend(df, color_by=color_by, target_col=target_col)
     fig_recovery_2 = create_gym_sleep_load_heatmap(df, target_col=target_col)
 
@@ -234,7 +247,7 @@ def create_tab_contents(df, color_by="System_Recommendation", target_col="Error_
     fig_workload_3 = create_decision_density_target_scatter(df, color_by=color_by, target_col=target_col)
     fig_workload_4 = create_workload_parallel_coords(df, target_col=target_col)
 
-    fig_intervention_line = create_intervention_streamgraph(df, color_by=color_by)
+    fig_intervention_line = create_intervention_streamgraph(df, color_by=color_by, target_col=target_col)
     fig_intervention_scatter = create_risk_index_scatter(df, color_by=color_by, target_col=target_col)
     fig_intervention_context = create_perfect_storm_heatmap(df, target_col=target_col)
     fig_intervention_bar = create_avg_risk_profile_bar(df, target_col=target_col)
@@ -311,7 +324,78 @@ def create_tabs_content(df, color_by="System_Recommendation", target_col="Error_
     ], id="tabs", active_tab="tab-1", className="mb-2 flex-nowrap overflow-auto", style={"scrollbarWidth": "none"})
 
 
-def create_layout(df):
+def create_welcome_page(login_error=False):
+    return dbc.Container(
+        fluid=True,
+        style={
+            "height": "100vh",
+            "overflow": "hidden",
+            "background": "linear-gradient(160deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%)",
+            "fontFamily": "Inter, sans-serif",
+        },
+        className="p-2",
+        children=[
+            dbc.Row(
+                align="center",
+                justify="center",
+                style={"height": "100%"},
+                children=[
+                    dbc.Col(
+                        [
+                            html.Div(
+                                [
+                                    html.H1(
+                                        "Neuropulse",
+                                        className="fw-bold mb-2",
+                                        style={
+                                            "color": "#ffffff",
+                                            "fontSize": "3rem",
+                                            "letterSpacing": "0",
+                                        },
+                                    ),
+                                    html.H4(
+                                        "Workforce Decision Safety Dashboard",
+                                        className="mb-3",
+                                        style={"color": "#dbeafe", "fontWeight": "500"},
+                                    ),
+                                    html.P(
+                                        "Detect fatigue risk, recovery signals, and intervention effects before decisions become unsafe.",
+                                        className="mb-0",
+                                        style={"color": "#b7c7e6", "fontSize": "1rem", "maxWidth": "520px"},
+                                    ),
+                                ],
+                                className="mb-4",
+                            ),
+                            dbc.Card(
+                                dbc.CardBody(
+                                    [
+                                        html.Label("Username", className="small fw-semibold mb-1"),
+                                        dbc.Input(id="login-username", type="text", placeholder="Enter username", className="mb-3"),
+                                        html.Label("Password", className="small fw-semibold mb-1"),
+                                        dbc.Input(id="login-password", type="password", placeholder="Enter password", className="mb-4"),
+                                        html.Div(
+                                            "Invalid credentials. Use username gph and password gph.",
+                                            className="small text-danger mb-3" if login_error else "d-none",
+                                        ),
+                                        dbc.Button("Login", id="login-button", color="primary", className="w-100 fw-semibold"),
+                                    ],
+                                    className="p-4",
+                                ),
+                                className="shadow border-0",
+                                style={"borderRadius": "8px", "maxWidth": "420px", "backgroundColor": "#ffffff"},
+                            ),
+                        ],
+                        width=12,
+                        md=8,
+                        lg=5,
+                    )
+                ],
+            )
+        ],
+    )
+
+
+def create_dashboard_page(df):
     return dbc.Container(
         fluid=True,
         style={
@@ -343,3 +427,7 @@ def create_layout(df):
             ], className="g-4"),
         ],
     )
+
+
+def create_layout(df):
+    return html.Div(id="page-content", children=create_welcome_page())
