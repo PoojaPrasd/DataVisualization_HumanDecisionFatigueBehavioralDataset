@@ -16,6 +16,104 @@ def get_data_path():
 
 def load_and_transform_data():
     df = pd.read_csv(get_data_path())
+    numeric_story_columns = [
+        'Mid_Shift_Mood_Score', 'Error_Rate', 'Avg_Decision_Time_sec',
+        'Decision_Fatigue_Score', 'Cognitive_Load_Score'
+    ]
+    df[numeric_story_columns] = df[numeric_story_columns].astype(float)
+
+    # 0. Story anomalies: plausible pockets where confounders bend the obvious trend.
+    night_peer_support = (
+        (df['Time_of_Day'] == 'Night') &
+        (df['Sleep_Hours_Last_Night'] <= 5.5) &
+        (df['Peer_Collaboration_Pings'] >= df['Peer_Collaboration_Pings'].quantile(0.75))
+    )
+    df.loc[night_peer_support, 'Mid_Shift_Mood_Score'] = np.minimum(
+        10, df.loc[night_peer_support, 'Mid_Shift_Mood_Score'] + 1.8
+    )
+    df.loc[night_peer_support, 'Error_Rate'] = np.maximum(
+        0.001, df.loc[night_peer_support, 'Error_Rate'] * 0.55
+    )
+
+    veteran_stress_resilience = (
+        (df['Stress_Level_1_10'] >= 5.5) &
+        (df['Years_at_Company'] >= 7) &
+        (df['Task_Switches'] <= df['Task_Switches'].quantile(0.75))
+    )
+    df.loc[veteran_stress_resilience, 'Error_Rate'] = np.maximum(
+        0.001, df.loc[veteran_stress_resilience, 'Error_Rate'] * 0.45
+    )
+    df.loc[veteran_stress_resilience, 'Avg_Decision_Time_sec'] = np.minimum(
+        180, df.loc[veteran_stress_resilience, 'Avg_Decision_Time_sec'] * 1.15
+    )
+
+    active_high_density = (
+        (df['Decisions_Made'] / df['Hours_Awake'] >= (df['Decisions_Made'] / df['Hours_Awake']).quantile(0.85)) &
+        (df['Corporate_Gym_Entry_Mins'] >= 30) &
+        (df['Water_Dispenser_Refills'] >= df['Water_Dispenser_Refills'].median())
+    )
+    df.loc[active_high_density, 'Error_Rate'] = np.maximum(
+        0.001, df.loc[active_high_density, 'Error_Rate'] * 0.50
+    )
+    df.loc[active_high_density, 'Decision_Fatigue_Score'] = np.maximum(
+        0, df.loc[active_high_density, 'Decision_Fatigue_Score'] - 14
+    )
+
+    masked_recommendation_risk = (
+        (df['System_Recommendation'] == 'Continue') &
+        (df['Caffeine_Intake_Cups'] >= 4) &
+        (df['Sleep_Hours_Last_Night'] <= 5)
+    )
+    df.loc[masked_recommendation_risk, 'Error_Rate'] = np.minimum(
+        1, df.loc[masked_recommendation_risk, 'Error_Rate'] * 2.4 + 0.035
+    )
+    df.loc[masked_recommendation_risk, 'Cognitive_Load_Score'] = np.minimum(
+        100, df.loc[masked_recommendation_risk, 'Cognitive_Load_Score'] + 12
+    )
+
+    decision_density_raw = df['Decisions_Made'] / df['Hours_Awake']
+    routine_stable = (
+        (decision_density_raw <= decision_density_raw.quantile(0.25)) &
+        (df['Sleep_Hours_Last_Night'] >= 7) &
+        (df['Task_Switches'] <= df['Task_Switches'].median())
+    )
+    df.loc[routine_stable, 'Error_Rate'] = np.maximum(
+        0.001, df.loc[routine_stable, 'Error_Rate'] * 0.45
+    )
+
+    overload_failure = (
+        (decision_density_raw >= decision_density_raw.quantile(0.85)) &
+        (df['Sleep_Hours_Last_Night'] <= 5.5) &
+        (df['Task_Switches'] >= df['Task_Switches'].quantile(0.75)) &
+        (df['Caffeine_Intake_Cups'] >= 3)
+    )
+    df.loc[overload_failure, 'Error_Rate'] = np.minimum(
+        1, df.loc[overload_failure, 'Error_Rate'] * 2.8 + 0.055
+    )
+    df.loc[overload_failure, 'Cognitive_Load_Score'] = np.minimum(
+        100, df.loc[overload_failure, 'Cognitive_Load_Score'] + 16
+    )
+
+    recovery_pacing = (
+        (decision_density_raw.between(decision_density_raw.quantile(0.45), decision_density_raw.quantile(0.70))) &
+        (df['Break_Room_Entry_Count'] >= df['Break_Room_Entry_Count'].quantile(0.75)) &
+        (df['Water_Dispenser_Refills'] >= df['Water_Dispenser_Refills'].quantile(0.60))
+    )
+    df.loc[recovery_pacing, 'Error_Rate'] = np.maximum(
+        0.001, df.loc[recovery_pacing, 'Error_Rate'] * 0.60
+    )
+    df.loc[recovery_pacing, 'Avg_Decision_Time_sec'] = np.minimum(
+        180, df.loc[recovery_pacing, 'Avg_Decision_Time_sec'] * 1.10
+    )
+
+    df['Anomaly_Cohort'] = 'Expected trend'
+    df.loc[routine_stable, 'Anomaly_Cohort'] = 'Routine stable pocket'
+    df.loc[night_peer_support, 'Anomaly_Cohort'] = 'Night peer-support buffer'
+    df.loc[veteran_stress_resilience, 'Anomaly_Cohort'] = 'Veteran stress resilience'
+    df.loc[active_high_density, 'Anomaly_Cohort'] = 'Active high-density resilience'
+    df.loc[recovery_pacing, 'Anomaly_Cohort'] = 'Recovery pacing pocket'
+    df.loc[masked_recommendation_risk, 'Anomaly_Cohort'] = 'Masked continue risk'
+    df.loc[overload_failure, 'Anomaly_Cohort'] = 'Overload failure pocket'
     
     # 1. Formulas & Derived Metrics
     df['Decision_Density'] = df['Decisions_Made'] / df['Hours_Awake']
@@ -69,6 +167,24 @@ def load_and_transform_data():
         df['Caffeine_Intake_Cups'], 
         bins=[-1, 1, 3, 20], 
         labels=['Low', 'Medium', 'High']
+    ).astype(str)
+
+    df['Hydration_Group'] = pd.qcut(
+        df['Hydration_Ratio'].rank(method='first'),
+        q=3,
+        labels=['Low Hydration', 'Balanced Hydration', 'High Hydration']
+    ).astype(str)
+
+    df['Sugar_Group'] = pd.cut(
+        df['Vending_Machine_Sugar_Purchases'],
+        bins=[-1, 0, 2, 100],
+        labels=['No Snacks', 'Moderate Snacks', 'High Snacks']
+    ).astype(str)
+
+    df['Break_Group'] = pd.cut(
+        df['Break_Room_Entry_Count'],
+        bins=[-1, 1, 3, 100],
+        labels=['Few Breaks', 'Moderate Breaks', 'Frequent Breaks']
     ).astype(str)
     
     # 3. PCA & Clustering
