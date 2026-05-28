@@ -77,29 +77,41 @@ def update_dynamic_filter_values(filter_column):
     Input("dynamic-filter-column", "value"),
     Input("dynamic-filter-values", "value"),
     *[Input(graph_id, "relayoutData") for graph_id in GRAPH_IDS],
+    *[Input(graph_id, "restyleData") for graph_id in GRAPH_IDS],
 )
-def update_dashboard(color_by, target_col, filter_column, filter_values, *relayout_values):
+def update_dashboard(color_by, target_col, filter_column, filter_values, *interaction_values):
+    relayout_values = interaction_values[:len(GRAPH_IDS)]
+    restyle_values = interaction_values[len(GRAPH_IDS):]
     filtered = df.copy()
     if is_filter_active(filter_column, filter_values):
         filtered = filtered[filtered[filter_column].astype(str).isin(filter_values)]
 
     density_axis_ranges = None
+    legend_filter = None
     try:
         triggered_id = ctx.triggered_id
+        triggered_prop = next(iter(ctx.triggered_prop_ids.keys()), "")
     except Exception:
         triggered_id = None
-    if triggered_id in GRAPH_IDS and triggered_id not in WELLBEING_GRAPH_IDS:
-        relayout_data = relayout_values[GRAPH_IDS.index(triggered_id)]
-        if triggered_id == "risk-stress-target" and relayout_data:
-            density_axis_ranges = (_axis_range(relayout_data, "xaxis"), _axis_range(relayout_data, "yaxis"))
-        filtered = apply_zoom_filter(filtered, triggered_id, relayout_data, target_col or "Error_Rate")
+        triggered_prop = ""
+    if triggered_id in GRAPH_IDS:
+        graph_index = GRAPH_IDS.index(triggered_id)
+        if triggered_prop.endswith(".restyleData"):
+            legend_filter = _legend_filter(triggered_id, restyle_values[graph_index], color_by or "System_Recommendation")
+            if legend_filter and legend_filter[0] in filtered.columns:
+                filtered = filtered[filtered[legend_filter[0]].astype(str) == legend_filter[1]]
+        elif triggered_id not in WELLBEING_GRAPH_IDS:
+            relayout_data = relayout_values[graph_index]
+            if triggered_id == "risk-stress-target" and relayout_data:
+                density_axis_ranges = (_axis_range(relayout_data, "xaxis"), _axis_range(relayout_data, "yaxis"))
+            filtered = apply_zoom_filter(filtered, triggered_id, relayout_data, target_col or "Error_Rate")
 
     wb, risk, workload, interv = create_tab_contents(
         filtered,
         color_by=color_by or "System_Recommendation",
         target_col=target_col or "Error_Rate",
         density_axis_ranges=density_axis_ranges,
-        wellbeing_df=df,
+        wellbeing_df=filtered if legend_filter and triggered_id in WELLBEING_GRAPH_IDS else df,
     )
     return wb, risk, interv
 
@@ -182,10 +194,74 @@ def apply_zoom_filter(data, graph_id, relayout_data, target_col):
     x_range = _axis_range(relayout_data, "xaxis")
     y_range = _axis_range(relayout_data, "yaxis")
     if x_range and x_col in filtered.columns and _is_numeric(filtered[x_col]):
-        filtered = filtered[filtered[x_col].between(x_range[0], x_range[1], inclusive="both")]
+        filtered = filtered[_display_series(filtered[x_col], x_col).between(x_range[0], x_range[1], inclusive="both")]
     if y_range and y_col in filtered.columns and _is_numeric(filtered[y_col]):
-        filtered = filtered[filtered[y_col].between(y_range[0], y_range[1], inclusive="both")]
+        filtered = filtered[_display_series(filtered[y_col], y_col).between(y_range[0], y_range[1], inclusive="both")]
     return filtered
+
+
+def _display_series(series, column):
+    if column == "Error_Rate":
+        return series * 100
+    return series
+
+
+def _legend_filter(graph_id, restyle_data, color_by):
+    if not restyle_data or not isinstance(restyle_data, (list, tuple)) or len(restyle_data) < 2:
+        return None
+    trace_indices = restyle_data[1]
+    if not trace_indices:
+        return None
+    try:
+        trace_index = int(trace_indices[0])
+    except (TypeError, ValueError):
+        return None
+
+    column, categories = _legend_categories(graph_id, color_by)
+    if not column or trace_index < 0 or trace_index >= len(categories):
+        return None
+    return column, str(categories[trace_index])
+
+
+def _legend_categories(graph_id, color_by):
+    orders = {
+        "Fatigue_Level": ["Low", "Medium", "High"],
+        "System_Recommendation": ["Continue", "Slow Down", "Take Break"],
+        "Sleep_Group": ["Poor Sleep", "Adequate Sleep", "Good Sleep"],
+        "Time_of_Day": ["Morning", "Afternoon", "Evening", "Night"],
+        "Experience_Group": ["New (0-3)", "Mid-level (3-7)", "Senior (7-15)", "Veteran (15+)"],
+        "Stress_Group": ["Low", "Medium", "High"],
+        "Caffeine_Group": ["Low", "Medium", "High"],
+        "Gym_Group": ["No Activity", "Low Activity", "Moderate Activity", "High Activity"],
+        "Hydration_Group": ["Low Hydration", "Balanced Hydration", "High Hydration"],
+        "Sugar_Group": ["No Snacks", "Moderate Snacks", "High Snacks"],
+        "Break_Group": ["Few Breaks", "Moderate Breaks", "Frequent Breaks"],
+        "Behavioural_Archetype": ["Collaborative / Balanced", "Low Engagement", "Stressed / Isolated"],
+        "Anomaly_Cohort": [
+            "Expected trend", "Routine stable pocket", "Night peer-support buffer",
+            "Veteran stress resilience", "Active high-density resilience",
+            "Recovery pacing pocket", "Masked continue risk", "Overload failure pocket",
+        ],
+    }
+    fixed = {
+        "wellbeing-fatigue": "Fatigue_Level",
+        "wellbeing-sleep-target": "Fatigue_Level",
+        "wellbeing-mood-target": "System_Recommendation",
+        "intervention-line": "Sleep_Group",
+        "intervention-scatter": "System_Recommendation",
+    }
+    column = fixed.get(graph_id)
+    if graph_id in {"risk-load-target", "risk-sleep-target"}:
+        column = color_by
+    if not column:
+        return None, []
+    if column in orders:
+        values = [value for value in orders[column] if column in df.columns and value in set(df[column].astype(str))]
+    elif column in df.columns:
+        values = sorted(df[column].dropna().astype(str).unique())
+    else:
+        values = []
+    return column, values
 
 
 def _axis_range(relayout_data, axis):

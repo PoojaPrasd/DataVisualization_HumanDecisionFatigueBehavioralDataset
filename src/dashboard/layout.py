@@ -397,7 +397,7 @@ def create_tabs_content(df, color_by="System_Recommendation", target_col="Error_
     return dbc.Tabs([
         dbc.Tab(html.Div(id="tab-1-content", children=wellbeing_tab), label="Wellbeing", tab_id="tab-1", label_style=label_style),
         dbc.Tab(html.Div(id="tab-2-content", children=risk_tab), label="Risk Profile", tab_id="tab-2", label_style=label_style),
-        dbc.Tab(html.Div(id="tab-3-content", children=workload_tab), label="Workload & Confounding Memo", tab_id="tab-3", label_style=label_style),
+        dbc.Tab(html.Div(id="tab-3-content", children=workload_tab), label="Workload & Confounding", tab_id="tab-3", label_style=label_style),
         dbc.Tab(html.Div(id="tab-4-content", children=intervention_tab), label="Intervention and recovery", tab_id="tab-4", label_style=label_style),
     ], id="tabs", active_tab="tab-1", className="mb-2 flex-nowrap overflow-auto", style={"scrollbarWidth": "none"})
 
@@ -432,7 +432,7 @@ def create_welcome_page(login_error=False):
                                         },
                                     ),
                                     html.H4(
-                                        "Workforce Decision Safety Dashboard",
+                                        "Wellness • Welfare • Workforce",
                                         className="mb-3",
                                         style={"color": "#dbeafe", "fontWeight": "500"},
                                     ),
@@ -487,16 +487,29 @@ def create_dashboard_page(df):
             dcc.Store(id="selection-store", data={"source": None, "filters": []}),
             dbc.Row([
                 dbc.Col(
-                    html.H1(
-                        "Neuropulse: Workforce Decision Safety Dashboard",
-                        className="text-center mb-2 fw-bold",
-                        style={
-                            "color": "#ffffff",
-                            "letterSpacing": "0",
-                            "textShadow": "0 2px 12px rgba(0,0,0,0.4)",
-            "fontSize": "1.45rem",
-                            "lineHeight": "1.15",
-                        },
+                    html.Div(
+                        [
+                            html.H1(
+                                "Neuropulse",
+                                className="text-center mb-0 fw-bold",
+                                style={
+                                    "color": "#ffffff",
+                                    "letterSpacing": "0",
+                                    "textShadow": "0 2px 12px rgba(0,0,0,0.4)",
+                                    "fontSize": "1.65rem",
+                                    "lineHeight": "1.05",
+                                },
+                            ),
+                            html.Div(
+                                "Wellness • Welfare • Workforce",
+                                className="text-center fw-semibold",
+                                style={
+                                    "color": "#dbeafe",
+                                    "letterSpacing": "0",
+                                    "fontSize": "0.92rem",
+                                },
+                            ),
+                        ]
                     )
                 ),
                 dbc.Col(

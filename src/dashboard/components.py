@@ -9,7 +9,7 @@ font_family = "Inter, sans-serif"
 
 # Perceptually uniform and colorblind-aware palettes
 fatigue_colors = {'Low': '#2ECC71', 'Medium': '#F1C40F', 'High': '#E74C3C'}
-sys_rec_colors = {'Continue': '#27AE60', 'Slow Down': '#F1C40F', 'Take Break': '#E74C3C'}  # Traffic-light: Green ΓåÆ Yellow ΓåÆ Red
+sys_rec_colors = {'Continue': '#27AE60', 'Slow Down': '#F1C40F', 'Take Break': '#E74C3C'}  # Traffic-light: green, yellow, red
 wellbeing_sys_rec_colors = {
     'Continue': '#3B82C4',    # Steel blue
     'Slow Down': '#8E6BBE',   # Soft purple
@@ -70,6 +70,21 @@ axis_labels = {
 def _label(column):
     return axis_labels.get(column, column.replace('_', ' '))
 
+def _metric_label(column):
+    if column == 'Error_Rate':
+        return 'Error Rate (%)'
+    if column == 'Avg_Decision_Time_sec':
+        return 'Decision Time (s)'
+    return _label(column)
+
+def _metric_frame(df_plot, column):
+    display_col = column
+    if column == 'Error_Rate':
+        display_col = 'Error_Rate_pct'
+        df_plot = df_plot.copy()
+        df_plot[display_col] = df_plot[column] * 100
+    return df_plot, display_col, _metric_label(column)
+
 def _color_kwargs(df_plot, default_color, default_map=None, color_by=None):
     active_color = color_by if color_by in df_plot.columns else default_color
     kwargs = {'color': active_color}
@@ -111,6 +126,10 @@ def _apply_theme(fig):
     fig.update_yaxes(showgrid=True, gridcolor='rgba(200,200,200,0.3)', zeroline=False)
     return fig
 
+def _set_average_colorbar(fig, label):
+    fig.update_coloraxes(colorbar_title_text=f'Average {label}')
+    return fig
+
 # ΓöÇΓöÇ TAB 1: WELLBEING ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
 
 def create_fatigue_distribution_bar(df, color_by=None):
@@ -123,7 +142,7 @@ def create_fatigue_distribution_bar(df, color_by=None):
                  **_color_kwargs(agg, 'Fatigue_Level', fatigue_colors, color_col),
                  category_orders=_category_orders('Time_of_Day', 'Fatigue_Level', color_col),
                  labels={'Time_of_Day': 'Time of Day', 'Count': 'Number of Observations'},
-                 title='Γæá Timing: Fatigue Level by Time of Day')
+                 title='Timing: Fatigue Level by Time of Day')
     return _apply_theme(fig)
 
 def create_stress_fatigue_boxplot(df):
@@ -143,7 +162,7 @@ def create_sleep_fatigue_boxplot(df):
                  color_discrete_map=fatigue_colors,
                  category_orders=_category_orders('Fatigue_Level'),
                  labels={'Sleep_Hours_Last_Night': 'Sleep Hours Last Night', 'Fatigue_Level': 'Fatigue Level'},
-                 title='Γæó Recovery: Sleep Hours by Fatigue Level')
+                 title='Recovery: Sleep Hours by Fatigue Level')
     return _apply_theme(fig)
 
 
@@ -158,7 +177,7 @@ def create_wellbeing_system_rec_stacked_bar(df):
         color_discrete_map=wellbeing_sys_rec_colors,
         category_orders=_category_orders('Time_of_Day', 'System_Recommendation'),
         labels={'Time_of_Day': 'Time of Day', 'Count': 'Observations', 'System_Recommendation': 'Recommendation'},
-        title='Γæú Response: System Recommendations Across the Shift',
+        title='Response: System Recommendations Across the Shift',
     )
     fig.update_layout(legend_title_text='Recommendation')
     return _apply_theme(fig)
@@ -176,37 +195,39 @@ def create_wellbeing_stress_sleep_heatmap(df):
         labels={
             'Stress_Group': 'Stress Level',
             'Sleep_Group': 'Sleep Group',
-            'Decision_Fatigue_Score': 'Avg fatigue score',
+            'Decision_Fatigue_Score': 'Decision Fatigue Score',
         },
-        title='Γæí Risk zones: Avg Decision Fatigue (Stress ├ù Sleep)',
+        title='Risk Zones: Decision Fatigue by Stress and Sleep',
     )
-    return _apply_theme(fig)
+    return _set_average_colorbar(_apply_theme(fig), 'Decision Fatigue Score')
 
 
 def create_sleep_target_boxplot(df, color_by=None, target_col='Error_Rate'):
     target_col = target_col if target_col in df else 'Error_Rate'
     df_plot = df.dropna(subset=['Sleep_Group', target_col])
+    df_plot, display_col, display_label = _metric_frame(df_plot, target_col)
     df_plot = _prepare_ordered_categories(df_plot)
     fig = px.box(
-        df_plot, x='Sleep_Group', y=target_col,
+        df_plot, x='Sleep_Group', y=display_col,
         **_color_kwargs(df_plot, 'Sleep_Group', sleep_group_colors, color_by),
         category_orders=_category_orders('Sleep_Group', color_by),
-        labels={'Sleep_Group': 'Sleep Group', target_col: _label(target_col)},
-        title=f'Sleep Group vs {_label(target_col)}'
+        labels={'Sleep_Group': 'Sleep Group', display_col: display_label},
+        title=f'Sleep Group vs {display_label}'
     )
     return _apply_theme(fig)
 
 def create_mood_target_scatter(df, color_by=None, target_col='Error_Rate'):
     target_col = target_col if target_col in df else 'Error_Rate'
     df_plot = df.dropna(subset=['Mid_Shift_Mood_Score', target_col, 'Time_of_Day'])
+    df_plot, display_col, display_label = _metric_frame(df_plot, target_col)
     df_plot = _prepare_ordered_categories(df_plot)
     fig = px.scatter(
-        df_plot, x='Mid_Shift_Mood_Score', y=target_col,
+        df_plot, x='Mid_Shift_Mood_Score', y=display_col,
         **_color_kwargs(df_plot, 'Time_of_Day', time_of_day_colors, color_by),
         opacity=0.55, render_mode='webgl',
         category_orders=_category_orders('Time_of_Day', color_by),
-        labels={'Mid_Shift_Mood_Score': 'Mood Score', target_col: _label(target_col)},
-        title=f'Mood Score vs {_label(target_col)}'
+        labels={'Mid_Shift_Mood_Score': 'Mood Score', display_col: display_label},
+        title=f'Mood Score vs {display_label}'
     )
     return _apply_theme(fig)
 
@@ -319,13 +340,14 @@ def create_mood_shift_violin(df):
 def create_load_error_scatter(df, color_by=None, target_col='Error_Rate'):
     target_col = target_col if target_col in df else 'Error_Rate'
     df_plot = df.dropna(subset=['Cognitive_Load_Score', target_col, 'Fatigue_Level'])
+    df_plot, display_col, display_label = _metric_frame(df_plot, target_col)
     df_plot = _prepare_ordered_categories(df_plot)
-    fig = px.scatter(df_plot, x='Cognitive_Load_Score', y=target_col,
+    fig = px.scatter(df_plot, x='Cognitive_Load_Score', y=display_col,
                      **_color_kwargs(df_plot, 'Fatigue_Level', fatigue_colors, color_by),
                      opacity=0.7, render_mode='webgl',
                      category_orders=_category_orders('Fatigue_Level', color_by),
-                     labels={'Cognitive_Load_Score': 'Cognitive Load Score', target_col: _label(target_col)},
-                     title=f'Cognitive Load vs {_label(target_col)}')
+                     labels={'Cognitive_Load_Score': 'Cognitive Load Score', display_col: display_label},
+                     title=f'Cognitive Load vs {display_label}')
     return _apply_theme(fig)
 
 def create_stress_fatigue_quadrant(df, target_col='Error_Rate', axis_ranges=None):
@@ -349,14 +371,15 @@ def create_stress_fatigue_quadrant(df, target_col='Error_Rate', axis_ranges=None
 def create_sleep_fatigue_trend(df, color_by=None, target_col='Decision_Fatigue_Score'):
     target_col = target_col if target_col in df else 'Decision_Fatigue_Score'
     df_plot = df.dropna(subset=['Sleep_Group', target_col])
+    df_plot, display_col, display_label = _metric_frame(df_plot, target_col)
     df_plot = _prepare_ordered_categories(df_plot)
     color_col = color_by if color_by in df_plot.columns else 'Sleep_Group'
-    agg = df_plot.groupby(_unique_columns(['Sleep_Group', color_col]), observed=False)[target_col].mean().reset_index()
-    fig = px.bar(agg, x='Sleep_Group', y=target_col,
+    agg = df_plot.groupby(_unique_columns(['Sleep_Group', color_col]), observed=False)[display_col].mean().reset_index()
+    fig = px.bar(agg, x='Sleep_Group', y=display_col,
                  **_color_kwargs(agg, 'Sleep_Group', sleep_group_colors, color_col),
                  category_orders=_category_orders('Sleep_Group', color_col),
-                 labels={'Sleep_Group': 'Sleep Duration Group', target_col: f'Avg {_label(target_col)}'},
-                 title=f'Average {_label(target_col)} by Sleep Group')
+                 labels={'Sleep_Group': 'Sleep Duration Group', display_col: display_label},
+                 title=f'Average {display_label} by Sleep Group')
     return _apply_theme(fig)
 
 def create_sleep_error_trend(df, color_by=None):
@@ -377,30 +400,32 @@ def create_sleep_error_trend(df, color_by=None):
 def create_decision_error_bubble(df, color_by=None, target_col='Error_Rate'):
     target_col = target_col if target_col in df else 'Error_Rate'
     df_plot = df.dropna(subset=['Decisions_Made', target_col, 'Hours_Awake', 'Fatigue_Level'])
+    df_plot, display_col, display_label = _metric_frame(df_plot, target_col)
     df_plot = _prepare_ordered_categories(df_plot)
     # Plotly bubble requires size > 0
     df_plot = df_plot[df_plot['Hours_Awake'] > 0]
-    fig = px.scatter(df_plot, x='Decisions_Made', y=target_col,
+    fig = px.scatter(df_plot, x='Decisions_Made', y=display_col,
                      size='Hours_Awake',
                      **_color_kwargs(df_plot, 'Fatigue_Level', fatigue_colors, color_by),
                      opacity=0.6, render_mode='webgl',
                      category_orders=_category_orders('Fatigue_Level', color_by),
-                     labels={'Decisions_Made': 'Total Decisions Made', target_col: _label(target_col),
+                     labels={'Decisions_Made': 'Total Decisions Made', display_col: display_label,
                              'Hours_Awake': 'Hours Awake'},
-                     title=f'Decision Volume vs {_label(target_col)}')
+                     title=f'Decision Volume vs {display_label}')
     return _apply_theme(fig)
 
 def create_task_error_faceted(df, color_by=None, target_col='Error_Rate'):
     target_col = target_col if target_col in df else 'Error_Rate'
     df_plot = df.dropna(subset=['Task_Switches', target_col, 'Experience_Group', 'Fatigue_Level'])
+    df_plot, display_col, display_label = _metric_frame(df_plot, target_col)
     df_plot = _prepare_ordered_categories(df_plot)
-    fig = px.scatter(df_plot, x='Task_Switches', y=target_col,
+    fig = px.scatter(df_plot, x='Task_Switches', y=display_col,
                      facet_col='Experience_Group',
                      **_color_kwargs(df_plot, 'Fatigue_Level', fatigue_colors, color_by),
                      opacity=0.7, render_mode='webgl',
                      category_orders=_category_orders('Experience_Group', 'Fatigue_Level', color_by),
-                     labels={'Task_Switches': 'Task Switches', target_col: _label(target_col)},
-                     title=f'Task Switching vs {_label(target_col)} by Experience')
+                     labels={'Task_Switches': 'Task Switches', display_col: display_label},
+                     title=f'Task Switching vs {display_label} by Experience')
     # Fix overlapping facet labels: shorten annotation text and reduce font size
     fig.for_each_annotation(lambda a: a.update(text=a.text.split('=')[-1], font_size=11))
     fig.update_xaxes(tickangle=0)
@@ -409,12 +434,13 @@ def create_task_error_faceted(df, color_by=None, target_col='Error_Rate'):
 def create_density_fatigue_scatter(df, color_by=None, target_col='Decision_Fatigue_Score'):
     target_col = target_col if target_col in df else 'Decision_Fatigue_Score'
     df_plot = df.dropna(subset=['Time_of_Day', target_col, 'Experience_Group'])
+    df_plot, display_col, display_label = _metric_frame(df_plot, target_col)
     df_plot = _prepare_ordered_categories(df_plot)
-    fig = px.box(df_plot, x='Time_of_Day', y=target_col,
+    fig = px.box(df_plot, x='Time_of_Day', y=display_col,
                  **_color_kwargs(df_plot, 'Experience_Group', None, color_by),
                  category_orders=_category_orders('Time_of_Day', 'Experience_Group', color_by),
-                 labels={'Time_of_Day': 'Time of Day', target_col: _label(target_col)},
-                 title=f'{_label(target_col)} Across Shifts')
+                 labels={'Time_of_Day': 'Time of Day', display_col: display_label},
+                 title=f'{display_label} Across Shifts')
     return _apply_theme(fig)
 
 def create_workload_parallel_coords(df, target_col='Error_Rate'):
@@ -453,14 +479,15 @@ def create_workload_parallel_coords(df, target_col='Error_Rate'):
 def create_decision_density_target_scatter(df, color_by=None, target_col='Error_Rate'):
     target_col = target_col if target_col in df else 'Error_Rate'
     df_plot = df.dropna(subset=['Decision_Density', target_col])
+    df_plot, display_col, display_label = _metric_frame(df_plot, target_col)
     df_plot = _prepare_ordered_categories(df_plot)
     fig = px.scatter(
-        df_plot, x='Decision_Density', y=target_col,
+        df_plot, x='Decision_Density', y=display_col,
         **_color_kwargs(df_plot, 'Fatigue_Level', fatigue_colors, color_by),
         opacity=0.6, render_mode='webgl',
         category_orders=_category_orders('Fatigue_Level', color_by),
-        labels={'Decision_Density': 'Decisions per Hour Awake', target_col: _label(target_col)},
-        title=f'Decision Density vs {_label(target_col)}'
+        labels={'Decision_Density': 'Decisions per Hour Awake', display_col: display_label},
+        title=f'Decision Density vs {display_label}'
     )
     return _apply_theme(fig)
 
@@ -470,29 +497,32 @@ def create_decision_density_target_scatter(df, color_by=None, target_col='Error_
 def create_caffeine_hydration_heatmap(df, target_col='Avg_Decision_Time_sec'):
     target_col = target_col if target_col in df else 'Avg_Decision_Time_sec'
     df_plot = df.dropna(subset=['Caffeine_Group', 'Hydration_Ratio', target_col])
+    df_plot, display_col, display_label = _metric_frame(df_plot, target_col)
     df_plot = _prepare_ordered_categories(df_plot)
     fig = px.density_heatmap(df_plot, x='Caffeine_Group', y='Hydration_Ratio',
-                             z=target_col, histfunc='avg',
+                             z=display_col, histfunc='avg',
                              color_continuous_scale='Viridis',
                              category_orders=_category_orders('Caffeine_Group'),
                              labels={'Caffeine_Group': 'Caffeine Intake',
                                      'Hydration_Ratio': 'Hydration Ratio',
-                                     target_col: f'Avg {_label(target_col)}'},
-                             title=f'Caffeine & Hydration vs {_label(target_col)}')
-    return _apply_theme(fig)
+                                     display_col: display_label},
+                             title=f'Caffeine & Hydration vs {display_label}')
+    return _set_average_colorbar(_apply_theme(fig), display_label)
 
 def create_gym_sleep_load_heatmap(df, target_col='Cognitive_Load_Score'):
     target_col = target_col if target_col in df else 'Cognitive_Load_Score'
     df_plot = df.dropna(subset=['Gym_Group', 'Sleep_Group', target_col])
+    df_plot, display_col, display_label = _metric_frame(df_plot, target_col)
     df_plot = _prepare_ordered_categories(df_plot)
     fig = px.density_heatmap(df_plot, x='Gym_Group', y='Sleep_Group',
-                             z=target_col, histfunc='avg',
+                             z=display_col, histfunc='avg',
                              color_continuous_scale='Blues',
                              category_orders=_category_orders('Gym_Group', 'Sleep_Group'),
                              labels={'Gym_Group': 'Gym Activity', 'Sleep_Group': 'Sleep Group',
-                                     target_col: f'Avg {_label(target_col)}'},
-                             title=f'Gym Activity and Sleep vs {_label(target_col)}')
+                                     display_col: display_label},
+                             title=f'Gym Activity and Sleep vs {display_label}')
     fig = _apply_theme(fig)
+    _set_average_colorbar(fig, display_label)
     fig.update_xaxes(categoryorder='array', categoryarray=CATEGORY_ORDERS['Gym_Group'])
     fig.update_yaxes(categoryorder='array', categoryarray=CATEGORY_ORDERS['Sleep_Group'])
     return fig
@@ -506,7 +536,7 @@ def create_sleep_quality_boxplot(df, color_by=None, target_col='Mid_Shift_Mood_S
                  category_orders=_category_orders('Sleep_Group', color_by),
                  labels={'Sleep_Group': 'Sleep Group', target_col: _label(target_col)},
                  title=f'Sleep Duration vs {_label(target_col)}')
-    return _apply_theme(fig)
+    return _set_average_colorbar(_apply_theme(fig), display_label)
 
 def create_experience_stress_boxplot(df, color_by=None, target_col='Stress_Level_1_10'):
     target_col = target_col if target_col in df else 'Stress_Level_1_10'
@@ -525,16 +555,18 @@ def create_experience_stress_boxplot(df, color_by=None, target_col='Stress_Level
 def create_perfect_storm_heatmap(df, target_col='Error_Rate'):
     target_col = target_col if target_col in df else 'Error_Rate'
     df_plot = df.dropna(subset=['Caffeine_Group', 'Hydration_Group', target_col])
+    df_plot, display_col, display_label = _metric_frame(df_plot, target_col)
     df_plot = _prepare_ordered_categories(df_plot)
     fig = px.density_heatmap(df_plot, x='Caffeine_Group', y='Hydration_Group',
-                             z=target_col, histfunc='avg',
+                             z=display_col, histfunc='avg',
                              color_continuous_scale='Viridis',
                              category_orders=_category_orders('Caffeine_Group', 'Hydration_Group'),
                              labels={'Caffeine_Group': 'Caffeine Intake',
                                      'Hydration_Group': 'Hydration Balance',
-                                     target_col: f'Avg {_label(target_col)}'},
-                             title=f'Caffeine and Hydration vs {_label(target_col)}')
+                                     display_col: display_label},
+                             title=f'Caffeine and Hydration vs {display_label}')
     fig = _apply_theme(fig)
+    _set_average_colorbar(fig, display_label)
     fig.update_xaxes(categoryorder='array', categoryarray=CATEGORY_ORDERS['Caffeine_Group'])
     fig.update_yaxes(categoryorder='array', categoryarray=CATEGORY_ORDERS['Hydration_Group'])
     return fig
@@ -542,29 +574,32 @@ def create_perfect_storm_heatmap(df, target_col='Error_Rate'):
 def create_risk_index_scatter(df, color_by=None, target_col='Error_Rate'):
     target_col = target_col if target_col in df else 'Error_Rate'
     df_plot = df.dropna(subset=['Break_Group', target_col, 'System_Recommendation'])
+    df_plot, display_col, display_label = _metric_frame(df_plot, target_col)
     df_plot = _prepare_ordered_categories(df_plot)
-    fig = px.box(df_plot, x='Break_Group', y=target_col, color='System_Recommendation',
+    fig = px.box(df_plot, x='Break_Group', y=display_col, color='System_Recommendation',
                  color_discrete_map=sys_rec_colors,
                  category_orders=_category_orders('Break_Group', 'System_Recommendation'),
                  labels={'Break_Group': 'Break Frequency',
                          'System_Recommendation': 'System Recommendation',
-                         target_col: _label(target_col)},
-                 title=f'Break Recovery by Recommendation vs {_label(target_col)}')
+                         display_col: display_label},
+                 title=f'Break Recovery by Recommendation vs {display_label}')
     return _apply_theme(fig)
 
 def create_avg_risk_profile_bar(df, target_col='Error_Rate'):
     target_col = target_col if target_col in df else 'Error_Rate'
     df_plot = df.dropna(subset=['Caffeine_Group', 'Sugar_Group', target_col])
+    df_plot, display_col, display_label = _metric_frame(df_plot, target_col)
     df_plot = _prepare_ordered_categories(df_plot)
     fig = px.density_heatmap(df_plot, x='Caffeine_Group', y='Sugar_Group',
-                 z=target_col, histfunc='avg',
+                 z=display_col, histfunc='avg',
                  color_continuous_scale='OrRd',
                  category_orders=_category_orders('Caffeine_Group', 'Sugar_Group'),
                  labels={'Caffeine_Group': 'Caffeine Intake',
                          'Sugar_Group': 'Snack Reliance',
-                         target_col: f'Avg {_label(target_col)}'},
-                 title=f'Caffeine and Snacks vs {_label(target_col)}')
+                         display_col: display_label},
+                 title=f'Caffeine and Snacks vs {display_label}')
     fig = _apply_theme(fig)
+    _set_average_colorbar(fig, display_label)
     fig.update_xaxes(categoryorder='array', categoryarray=CATEGORY_ORDERS['Caffeine_Group'])
     fig.update_yaxes(categoryorder='array', categoryarray=CATEGORY_ORDERS['Sugar_Group'])
     return fig
@@ -572,17 +607,18 @@ def create_avg_risk_profile_bar(df, target_col='Error_Rate'):
 def create_intervention_streamgraph(df, color_by=None, target_col='Error_Rate'):
     target_col = target_col if target_col in df else 'Error_Rate'
     df_plot = df.dropna(subset=['Gym_Group', 'Sleep_Group', target_col])
+    df_plot, display_col, display_label = _metric_frame(df_plot, target_col)
     df_plot = _prepare_ordered_categories(df_plot)
-    agg = df_plot.groupby(['Gym_Group', 'Sleep_Group'], observed=False)[target_col].mean().reset_index()
+    agg = df_plot.groupby(['Gym_Group', 'Sleep_Group'], observed=False)[display_col].mean().reset_index()
     fig = px.line(
-        agg, x='Gym_Group', y=target_col, color='Sleep_Group',
+        agg, x='Gym_Group', y=display_col, color='Sleep_Group',
         markers=True,
         color_discrete_map=sleep_group_colors,
         category_orders=_category_orders('Gym_Group', 'Sleep_Group'),
         labels={'Gym_Group': 'Gym Activity',
                 'Sleep_Group': 'Sleep Group',
-                target_col: f'Avg {_label(target_col)}'},
-        title=f'Physical Recovery and Sleep vs {_label(target_col)}'
+                display_col: display_label},
+        title=f'Physical Recovery and Sleep vs {display_label}'
     )
     fig.update_xaxes(categoryorder='array', categoryarray=CATEGORY_ORDERS['Gym_Group'])
     return _apply_theme(fig)
@@ -644,7 +680,7 @@ def create_archetype_parallel_coords_risk(df):
     fig = px.parallel_coordinates(df_plot, color='Cluster_ID', dimensions=dims,
                                   color_continuous_scale=colors,
                                   labels=short_labels,
-                                  title='Archetype Risk Profiles (Stress ΓåÆ Load ΓåÆ Fatigue ΓåÆ Error)')
+                                  title='Archetype Risk Profiles (Stress to Load to Fatigue to Error)')
     fig = _apply_theme(fig)
     fig.update_layout(margin=dict(t=100, b=60, l=80, r=80), coloraxis_showscale=False)
     fig.update_coloraxes(showscale=False)
@@ -678,7 +714,7 @@ def create_archetype_parallel_coords_behaviour(df):
     fig = px.parallel_coordinates(df_plot, color='Cluster_ID', dimensions=dims,
                                   color_continuous_scale=colors,
                                   labels=short_labels,
-                                  title='Archetype Lifestyle (Sleep ΓåÆ Mood ΓåÆ Collaboration ΓåÆ Breaks)')
+                                  title='Archetype Lifestyle (Sleep to Mood to Collaboration to Breaks)')
     fig = _apply_theme(fig)
     fig.update_layout(margin=dict(t=100, b=60, l=80, r=80), coloraxis_showscale=False)
     fig.update_coloraxes(showscale=False)
