@@ -10,6 +10,11 @@ font_family = "Inter, sans-serif"
 # Perceptually uniform and colorblind-aware palettes
 fatigue_colors = {'Low': '#2ECC71', 'Medium': '#F1C40F', 'High': '#E74C3C'}
 sys_rec_colors = {'Continue': '#27AE60', 'Slow Down': '#F1C40F', 'Take Break': '#E74C3C'}  # Traffic-light: Green → Yellow → Red
+wellbeing_sys_rec_colors = {
+    'Continue': '#3B82C4',    # Steel blue
+    'Slow Down': '#8E6BBE',   # Soft purple
+    'Take Break': '#E07A2F',  # Burnt orange
+}
 sleep_group_colors = {'Poor Sleep': '#E74C3C', 'Adequate Sleep': '#F1C40F', 'Good Sleep': '#2ECC71'}
 okabe_ito = ['#E69F00', '#56B4E9', '#009E73', '#F0E442', '#0072B2', '#D55E00', '#CC79A7', '#000000']
 time_of_day_colors = {'Morning': '#FF9F1C', 'Afternoon': '#2EC4B6', 'Evening': '#7B68EE', 'Night': '#1B263B'}  # Warm sunrise / Teal / Indigo / Dark navy
@@ -118,7 +123,7 @@ def create_fatigue_distribution_bar(df, color_by=None):
                  **_color_kwargs(agg, 'Fatigue_Level', fatigue_colors, color_col),
                  category_orders=_category_orders('Time_of_Day', 'Fatigue_Level', color_col),
                  labels={'Time_of_Day': 'Time of Day', 'Count': 'Number of Observations'},
-                 title='Fatigue Level Composition by Time of Day')
+                 title='① Timing: Fatigue Level by Time of Day')
     return _apply_theme(fig)
 
 def create_stress_fatigue_boxplot(df):
@@ -138,8 +143,45 @@ def create_sleep_fatigue_boxplot(df):
                  color_discrete_map=fatigue_colors,
                  category_orders=_category_orders('Fatigue_Level'),
                  labels={'Sleep_Hours_Last_Night': 'Sleep Hours Last Night', 'Fatigue_Level': 'Fatigue Level'},
-                 title='Sleep Hours vs Fatigue Levels')
+                 title='③ Recovery: Sleep Hours by Fatigue Level')
     return _apply_theme(fig)
+
+
+def create_wellbeing_system_rec_stacked_bar(df):
+    """Stacked bar: how system recommendations shift across the day."""
+    df_plot = df.dropna(subset=['Time_of_Day', 'System_Recommendation'])
+    df_plot = _prepare_ordered_categories(df_plot)
+    agg = df_plot.groupby(['Time_of_Day', 'System_Recommendation'], observed=False).size().reset_index(name='Count')
+    fig = px.bar(
+        agg, x='Time_of_Day', y='Count', color='System_Recommendation',
+        barmode='stack',
+        color_discrete_map=wellbeing_sys_rec_colors,
+        category_orders=_category_orders('Time_of_Day', 'System_Recommendation'),
+        labels={'Time_of_Day': 'Time of Day', 'Count': 'Observations', 'System_Recommendation': 'Recommendation'},
+        title='④ Response: System Recommendations Across the Shift',
+    )
+    fig.update_layout(legend_title_text='Recommendation')
+    return _apply_theme(fig)
+
+
+def create_wellbeing_stress_sleep_heatmap(df):
+    """Heatmap: average decision fatigue where stress and sleep intersect."""
+    df_plot = df.dropna(subset=['Stress_Group', 'Sleep_Group', 'Decision_Fatigue_Score'])
+    df_plot = _prepare_ordered_categories(df_plot)
+    fig = px.density_heatmap(
+        df_plot, x='Stress_Group', y='Sleep_Group',
+        z='Decision_Fatigue_Score', histfunc='avg',
+        color_continuous_scale='YlOrRd',
+        category_orders=_category_orders('Stress_Group', 'Sleep_Group'),
+        labels={
+            'Stress_Group': 'Stress Level',
+            'Sleep_Group': 'Sleep Group',
+            'Decision_Fatigue_Score': 'Avg fatigue score',
+        },
+        title='② Risk zones: Avg Decision Fatigue (Stress × Sleep)',
+    )
+    return _apply_theme(fig)
+
 
 def create_sleep_target_boxplot(df, color_by=None, target_col='Error_Rate'):
     target_col = target_col if target_col in df else 'Error_Rate'

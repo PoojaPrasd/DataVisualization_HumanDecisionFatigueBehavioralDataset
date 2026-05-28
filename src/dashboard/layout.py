@@ -1,10 +1,21 @@
 from dash import html, dcc
 import dash_bootstrap_components as dbc
 
+WELLBEING_GRAPH_IDS = [
+    "wellbeing-fatigue",
+    "wellbeing-breakdown",
+    "wellbeing-sleep-target",
+    "wellbeing-mood-target",
+]
+
 try:
     from .components import (
         create_fatigue_distribution_bar,
+        create_wellbeing_system_rec_stacked_bar,
+        create_wellbeing_stress_sleep_heatmap,
+        create_sleep_fatigue_boxplot,
         create_hierarchical_sunburst,
+        create_stress_fatigue_boxplot,
         create_sleep_target_boxplot,
         create_mood_target_scatter,
         create_load_error_scatter,
@@ -23,7 +34,11 @@ try:
 except ImportError:
     from components import (
         create_fatigue_distribution_bar,
+        create_wellbeing_system_rec_stacked_bar,
+        create_wellbeing_stress_sleep_heatmap,
+        create_sleep_fatigue_boxplot,
         create_hierarchical_sunburst,
+        create_stress_fatigue_boxplot,
         create_sleep_target_boxplot,
         create_mood_target_scatter,
         create_load_error_scatter,
@@ -40,6 +55,8 @@ except ImportError:
         create_intervention_streamgraph,
     )
 
+
+FILTER_ALL = "__all__"
 
 FILTER_COLUMNS = [
     ("Time_of_Day", "Time of day"),
@@ -129,9 +146,9 @@ GRAPH_IDS = [
 def get_zoom_axis_map(target_col):
     return {
         "wellbeing-fatigue": ("Time_of_Day", None),
-        "wellbeing-breakdown": (None, "Time_of_Day"),
-        "wellbeing-sleep-target": ("Sleep_Group", target_col),
-        "wellbeing-mood-target": ("Mid_Shift_Mood_Score", target_col),
+        "wellbeing-breakdown": ("Stress_Group", "Sleep_Group"),
+        "wellbeing-sleep-target": ("Fatigue_Level", "Sleep_Hours_Last_Night"),
+        "wellbeing-mood-target": ("Time_of_Day", None),
         "risk-load-target": ("Cognitive_Load_Score", target_col),
         "risk-stress-target": ("Decision_Density", "Cognitive_Load_Score"),
         "risk-sleep-target": ("Sleep_Group", target_col),
@@ -176,10 +193,49 @@ def _dropdown_options(df, column):
     return [{"label": value, "value": value} for value in values]
 
 
+def _filter_column_options(df):
+    return [{"label": "All", "value": FILTER_ALL}] + [
+        {"label": label, "value": value} for value, label in FILTER_COLUMNS if value in df
+    ]
+
+
+def _all_filter_value_options(df, column):
+    return _dropdown_options(df, column)
+
+
+def is_filter_active(filter_column, filter_values):
+    if not filter_column or filter_column == FILTER_ALL:
+        return False
+    if not filter_values or FILTER_ALL in filter_values:
+        return False
+    return True
+
+
 def create_filter_sidebar(df):
     controls = [
         html.H5("Filters", className="fw-bold mb-2", style={"color": "#1f2d3d"}),
-        html.P("Apply one selection set across every tab.", className="text-muted small mb-3"),
+        html.P(
+            "Filter, color, and target apply to Risk, Workload, and Intervention tabs. "
+            "Wellbeing uses fixed colors and the full dataset.",
+            className="text-muted small mb-3",
+        ),
+        html.Label("Filter by", className="small fw-semibold mb-1"),
+        dcc.Dropdown(
+            id="dynamic-filter-column",
+            options=_filter_column_options(df),
+            value=FILTER_ALL,
+            clearable=False,
+            className="mb-2",
+        ),
+        html.Label("Filter values", className="small fw-semibold mb-1"),
+        dcc.Dropdown(
+            id="dynamic-filter-values",
+            options=[{"label": "All", "value": FILTER_ALL}],
+            value=[FILTER_ALL],
+            multi=True,
+            disabled=True,
+            className="mb-3",
+        ),
         html.Label("Color plots by", className="small fw-semibold mb-1"),
         dcc.Dropdown(
             id="color-by-filter",
@@ -194,24 +250,6 @@ def create_filter_sidebar(df):
             options=[{"label": label, "value": value} for value, label in TARGET_COLUMNS if value in df],
             value="Error_Rate" if "Error_Rate" in df else None,
             clearable=False,
-            className="mb-3",
-        ),
-        html.Label("Optional filter", className="small fw-semibold mb-1"),
-        dcc.Dropdown(
-            id="dynamic-filter-column",
-            options=[{"label": label, "value": value} for value, label in FILTER_COLUMNS if value in df],
-            value=None,
-            clearable=True,
-            placeholder="Choose a filter",
-            className="mb-2",
-        ),
-        html.Label("Filter values", className="small fw-semibold mb-1"),
-        dcc.Dropdown(
-            id="dynamic-filter-values",
-            options=[],
-            value=[],
-            multi=True,
-            placeholder="All values",
             className="mb-2",
         ),
     ]
@@ -231,11 +269,19 @@ def create_filter_sidebar(df):
     )
 
 
-def create_tab_contents(df, color_by="System_Recommendation", target_col="Error_Rate", density_axis_ranges=None):
-    fig_wellbeing_1 = create_fatigue_distribution_bar(df, color_by=color_by)
-    fig_wellbeing_2 = create_hierarchical_sunburst(df, color_by=color_by)
-    fig_wellbeing_3 = create_sleep_target_boxplot(df, color_by=color_by, target_col=target_col)
-    fig_wellbeing_4 = create_mood_target_scatter(df, color_by=color_by, target_col=target_col)
+def create_tab_contents(
+    df,
+    color_by="System_Recommendation",
+    target_col="Error_Rate",
+    density_axis_ranges=None,
+    wellbeing_df=None,
+):
+    overall = wellbeing_df if wellbeing_df is not None else df
+
+    fig_wellbeing_1 = create_fatigue_distribution_bar(overall, color_by="Fatigue_Level")
+    fig_wellbeing_2 = create_wellbeing_stress_sleep_heatmap(overall)
+    fig_wellbeing_3 = create_sleep_fatigue_boxplot(overall)
+    fig_wellbeing_4 = create_wellbeing_system_rec_stacked_bar(overall)
 
     fig_risk_1 = create_load_error_scatter(df, color_by=color_by, target_col=target_col)
     fig_risk_2 = create_stress_fatigue_quadrant(df, target_col=target_col, axis_ranges=density_axis_ranges)

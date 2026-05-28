@@ -3,14 +3,16 @@ import dash_bootstrap_components as dbc
 try:
     from .data_loader import df
     from .layout import (
-        GRAPH_IDS, create_dashboard_page, create_layout, create_tab_contents,
-        get_zoom_axis_map, _dropdown_options, create_welcome_page
+        FILTER_ALL, GRAPH_IDS, WELLBEING_GRAPH_IDS, create_dashboard_page, create_layout,
+        create_tab_contents, get_zoom_axis_map, _all_filter_value_options, create_welcome_page,
+        is_filter_active,
     )
 except ImportError:
     from data_loader import df
     from layout import (
-        GRAPH_IDS, create_dashboard_page, create_layout, create_tab_contents,
-        get_zoom_axis_map, _dropdown_options, create_welcome_page
+        FILTER_ALL, GRAPH_IDS, WELLBEING_GRAPH_IDS, create_dashboard_page, create_layout,
+        create_tab_contents, get_zoom_axis_map, _all_filter_value_options, create_welcome_page,
+        is_filter_active,
     )
 
 # Initialize the Dash app with a Bootstrap theme
@@ -37,12 +39,15 @@ def show_dashboard(n_clicks, username, password):
 @app.callback(
     Output("dynamic-filter-values", "options"),
     Output("dynamic-filter-values", "value"),
+    Output("dynamic-filter-values", "disabled"),
     Input("dynamic-filter-column", "value"),
 )
 def update_dynamic_filter_values(filter_column):
-    if not filter_column:
-        return [], []
-    return _dropdown_options(df, filter_column), []
+    if not filter_column or filter_column == FILTER_ALL:
+        return [{"label": "All", "value": FILTER_ALL}], [FILTER_ALL], True
+    options = _all_filter_value_options(df, filter_column)
+    all_values = [option["value"] for option in options]
+    return options, all_values, False
 
 
 @app.callback(
@@ -58,7 +63,7 @@ def update_dynamic_filter_values(filter_column):
 )
 def update_dashboard(color_by, target_col, filter_column, filter_values, *relayout_values):
     filtered = df.copy()
-    if filter_column in filtered and filter_values:
+    if is_filter_active(filter_column, filter_values):
         filtered = filtered[filtered[filter_column].astype(str).isin(filter_values)]
 
     density_axis_ranges = None
@@ -66,7 +71,7 @@ def update_dashboard(color_by, target_col, filter_column, filter_values, *relayo
         triggered_id = ctx.triggered_id
     except Exception:
         triggered_id = None
-    if triggered_id in GRAPH_IDS:
+    if triggered_id in GRAPH_IDS and triggered_id not in WELLBEING_GRAPH_IDS:
         relayout_data = relayout_values[GRAPH_IDS.index(triggered_id)]
         if triggered_id == "risk-stress-target" and relayout_data:
             density_axis_ranges = (_axis_range(relayout_data, "xaxis"), _axis_range(relayout_data, "yaxis"))
@@ -77,6 +82,7 @@ def update_dashboard(color_by, target_col, filter_column, filter_values, *relayo
         color_by=color_by or "System_Recommendation",
         target_col=target_col or "Error_Rate",
         density_axis_ranges=density_axis_ranges,
+        wellbeing_df=df,
     )
 
 
