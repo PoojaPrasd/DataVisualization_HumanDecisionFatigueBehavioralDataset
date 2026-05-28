@@ -1,4 +1,4 @@
-from dash import html, dcc
+﻿from dash import html, dcc
 import dash_bootstrap_components as dbc
 
 WELLBEING_GRAPH_IDS = [
@@ -88,6 +88,7 @@ COLOR_COLUMNS = [
     ("Break_Group", "Break group"),
     ("Self_Reported_Sleep_Quality", "Sleep quality"),
     ("Behavioural_Archetype", "Behavioural archetype"),
+    ("Anomaly_Cohort", "Anomaly cohort"),
 ]
 
 TARGET_COLUMNS = [
@@ -132,10 +133,6 @@ GRAPH_IDS = [
     "risk-stress-target",
     "risk-sleep-target",
     "risk-recovery-target",
-    "workload-decisions",
-    "workload-switches",
-    "workload-density",
-    "workload-parallel",
     "intervention-context",
     "intervention-line",
     "intervention-scatter",
@@ -181,6 +178,25 @@ def create_chart_card(fig, graph_id):
     )
 
 
+def _memo_graph_card(graph_id, height):
+    return dbc.Card(
+        dbc.CardBody([
+            dcc.Graph(
+                id=graph_id,
+                config={
+                    "displayModeBar": True,
+                    "modeBarButtonsToAdd": ["lasso2d", "select2d"],
+                    "modeBarButtonsToRemove": ["autoScale2d"],
+                    "displaylogo": False,
+                },
+                style={"height": height},
+            )
+        ], className="p-1"),
+        className="shadow-sm rounded-2 border-0 h-100",
+        style={"backgroundColor": "#ffffff", "overflow": "hidden"},
+    )
+
+
 def _dropdown_options(df, column):
     if column not in df:
         return []
@@ -215,8 +231,9 @@ def create_filter_sidebar(df):
     controls = [
         html.H5("Filters", className="fw-bold mb-2", style={"color": "#1f2d3d"}),
         html.P(
-            "Filter, color, and target apply to Risk, Workload, and Intervention tabs. "
-            "Wellbeing uses fixed colors and the full dataset.",
+            "Filter, color, and target apply to Risk and Intervention tabs. "
+            "Wellbeing uses fixed colors and the full dataset. "
+            "Workload uses brushing (Clear selection resets it).",
             className="text-muted small mb-3",
         ),
         html.Label("Filter by", className="small fw-semibold mb-1"),
@@ -249,6 +266,27 @@ def create_filter_sidebar(df):
             id="target-variable-filter",
             options=[{"label": label, "value": value} for value, label in TARGET_COLUMNS if value in df],
             value="Error_Rate" if "Error_Rate" in df else None,
+            clearable=False,
+            className="mb-2",
+        ),
+        html.Hr(),
+        html.Label("Confounding scatter — X axis", className="small fw-semibold mb-1"),
+        dcc.Dropdown(
+            id="conf-x",
+            options=[
+                {"label": label, "value": value}
+                for value, label in [
+                    ("Hours_Awake", "Hours awake"),
+                    ("Decisions_Made", "Decisions made"),
+                    ("Task_Switches", "Task switches"),
+                    ("Sleep_Hours_Last_Night", "Sleep hours"),
+                    ("Avg_Decision_Time_sec", "Decision time"),
+                    ("Cognitive_Load_Score", "Cognitive load"),
+                    ("Decision_Fatigue_Score", "Fatigue score"),
+                ]
+                if value in df.columns
+            ],
+            value="Hours_Awake" if "Hours_Awake" in df.columns else None,
             clearable=False,
             className="mb-2",
         ),
@@ -287,11 +325,6 @@ def create_tab_contents(
     fig_risk_2 = create_stress_fatigue_quadrant(df, target_col=target_col, axis_ranges=density_axis_ranges)
     fig_risk_3 = create_sleep_fatigue_trend(df, color_by=color_by, target_col=target_col)
     fig_recovery_2 = create_gym_sleep_load_heatmap(df, target_col=target_col)
-
-    fig_workload_1 = create_decision_error_bubble(df, color_by=color_by, target_col=target_col)
-    fig_workload_2 = create_task_error_faceted(df, color_by=color_by, target_col=target_col)
-    fig_workload_3 = create_decision_density_target_scatter(df, color_by=color_by, target_col=target_col)
-    fig_workload_4 = create_workload_parallel_coords(df, target_col=target_col)
 
     fig_intervention_line = create_intervention_streamgraph(df, color_by=color_by, target_col=target_col)
     fig_intervention_scatter = create_risk_index_scatter(df, color_by=color_by, target_col=target_col)
@@ -336,12 +369,11 @@ def create_tab_contents(
 
     workload_memo_tab = tab_wrap([
         dbc.Row([
-            dbc.Col(create_chart_card(fig_workload_1, "workload-decisions"), md=6),
-            dbc.Col(create_chart_card(fig_workload_2, "workload-switches"), md=6),
+            dbc.Col(_memo_graph_card("pcp-graph", "240px"), md=12),
         ], className="g-2 mb-2"),
         dbc.Row([
-            dbc.Col(create_chart_card(fig_workload_3, "workload-density"), md=6),
-            dbc.Col(create_chart_card(fig_workload_4, "workload-parallel"), md=6),
+            dbc.Col(_memo_graph_card("conf-scatter", "300px"), md=8),
+            dbc.Col(_memo_graph_card("comp-box", "300px"), md=4),
         ], className="g-2"),
     ], "workload_memo")
 
@@ -452,6 +484,7 @@ def create_dashboard_page(df):
         },
         className="p-2",
         children=[
+            dcc.Store(id="selection-store", data={"source": None, "filters": []}),
             dbc.Row([
                 dbc.Col(
                     html.H1(
@@ -465,8 +498,19 @@ def create_dashboard_page(df):
                             "lineHeight": "1.15",
                         },
                     )
-                )
-            ]),
+                ),
+                dbc.Col(
+                    dbc.Button(
+                        "Clear selection",
+                        id="reset-selection-btn",
+                        color="light",
+                        size="sm",
+                        className="mt-2",
+                        style={"fontSize": "12px"},
+                    ),
+                    width="auto",
+                ),
+            ], align="center"),
             dbc.Row([
                 dbc.Col(create_filter_sidebar(df), width=12, lg=3, xl=2, className="mb-4"),
                 dbc.Col(html.Div(id="dashboard-tabs", children=create_tabs_content(df)), width=12, lg=9, xl=10),

@@ -1,4 +1,4 @@
-import pandas as pd
+﻿import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
 import numpy as np
@@ -9,7 +9,7 @@ font_family = "Inter, sans-serif"
 
 # Perceptually uniform and colorblind-aware palettes
 fatigue_colors = {'Low': '#2ECC71', 'Medium': '#F1C40F', 'High': '#E74C3C'}
-sys_rec_colors = {'Continue': '#27AE60', 'Slow Down': '#F1C40F', 'Take Break': '#E74C3C'}  # Traffic-light: Green → Yellow → Red
+sys_rec_colors = {'Continue': '#27AE60', 'Slow Down': '#F1C40F', 'Take Break': '#E74C3C'}  # Traffic-light: Green ΓåÆ Yellow ΓåÆ Red
 wellbeing_sys_rec_colors = {
     'Continue': '#3B82C4',    # Steel blue
     'Slow Down': '#8E6BBE',   # Soft purple
@@ -111,7 +111,7 @@ def _apply_theme(fig):
     fig.update_yaxes(showgrid=True, gridcolor='rgba(200,200,200,0.3)', zeroline=False)
     return fig
 
-# ── TAB 1: WELLBEING ──────────────────────────────────────────────────────────
+# ΓöÇΓöÇ TAB 1: WELLBEING ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
 
 def create_fatigue_distribution_bar(df, color_by=None):
     df_plot = df.dropna(subset=['Time_of_Day', 'Fatigue_Level'])
@@ -123,7 +123,7 @@ def create_fatigue_distribution_bar(df, color_by=None):
                  **_color_kwargs(agg, 'Fatigue_Level', fatigue_colors, color_col),
                  category_orders=_category_orders('Time_of_Day', 'Fatigue_Level', color_col),
                  labels={'Time_of_Day': 'Time of Day', 'Count': 'Number of Observations'},
-                 title='① Timing: Fatigue Level by Time of Day')
+                 title='Γæá Timing: Fatigue Level by Time of Day')
     return _apply_theme(fig)
 
 def create_stress_fatigue_boxplot(df):
@@ -143,7 +143,7 @@ def create_sleep_fatigue_boxplot(df):
                  color_discrete_map=fatigue_colors,
                  category_orders=_category_orders('Fatigue_Level'),
                  labels={'Sleep_Hours_Last_Night': 'Sleep Hours Last Night', 'Fatigue_Level': 'Fatigue Level'},
-                 title='③ Recovery: Sleep Hours by Fatigue Level')
+                 title='Γæó Recovery: Sleep Hours by Fatigue Level')
     return _apply_theme(fig)
 
 
@@ -158,7 +158,7 @@ def create_wellbeing_system_rec_stacked_bar(df):
         color_discrete_map=wellbeing_sys_rec_colors,
         category_orders=_category_orders('Time_of_Day', 'System_Recommendation'),
         labels={'Time_of_Day': 'Time of Day', 'Count': 'Observations', 'System_Recommendation': 'Recommendation'},
-        title='④ Response: System Recommendations Across the Shift',
+        title='Γæú Response: System Recommendations Across the Shift',
     )
     fig.update_layout(legend_title_text='Recommendation')
     return _apply_theme(fig)
@@ -178,7 +178,7 @@ def create_wellbeing_stress_sleep_heatmap(df):
             'Sleep_Group': 'Sleep Group',
             'Decision_Fatigue_Score': 'Avg fatigue score',
         },
-        title='② Risk zones: Avg Decision Fatigue (Stress × Sleep)',
+        title='Γæí Risk zones: Avg Decision Fatigue (Stress ├ù Sleep)',
     )
     return _apply_theme(fig)
 
@@ -314,7 +314,7 @@ def create_mood_shift_violin(df):
     return _apply_theme(fig)
 
 
-# ── TAB 2: RISK PROFILE ───────────────────────────────────────────────────────
+# ΓöÇΓöÇ TAB 2: RISK PROFILE ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
 
 def create_load_error_scatter(df, color_by=None, target_col='Error_Rate'):
     target_col = target_col if target_col in df else 'Error_Rate'
@@ -372,7 +372,7 @@ def create_sleep_error_trend(df, color_by=None):
     return _apply_theme(fig)
 
 
-# ── TAB 3: WORKLOAD ───────────────────────────────────────────────────────────
+# ΓöÇΓöÇ TAB 3: WORKLOAD ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
 
 def create_decision_error_bubble(df, color_by=None, target_col='Error_Rate'):
     target_col = target_col if target_col in df else 'Error_Rate'
@@ -465,7 +465,7 @@ def create_decision_density_target_scatter(df, color_by=None, target_col='Error_
     return _apply_theme(fig)
 
 
-# ── TAB 4: RECOVERY ───────────────────────────────────────────────────────────
+# ΓöÇΓöÇ TAB 4: RECOVERY ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
 
 def create_caffeine_hydration_heatmap(df, target_col='Avg_Decision_Time_sec'):
     target_col = target_col if target_col in df else 'Avg_Decision_Time_sec'
@@ -520,7 +520,7 @@ def create_experience_stress_boxplot(df, color_by=None, target_col='Stress_Level
     return _apply_theme(fig)
 
 
-# ── TAB 5: INTERVENTION ───────────────────────────────────────────────────────
+# ΓöÇΓöÇ TAB 5: INTERVENTION ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
 
 def create_perfect_storm_heatmap(df, target_col='Error_Rate'):
     target_col = target_col if target_col in df else 'Error_Rate'
@@ -588,7 +588,7 @@ def create_intervention_streamgraph(df, color_by=None, target_col='Error_Rate'):
     return _apply_theme(fig)
 
 
-# ── TAB 6: ARCHETYPES ─────────────────────────────────────────────────────────
+# ΓöÇΓöÇ TAB 6: ARCHETYPES ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
 
 def create_pca_scatter(df):
     df_plot = df.dropna(subset=['PCA_1', 'PCA_2', 'Behavioural_Archetype'])
@@ -625,7 +625,7 @@ def create_cluster_profile_heatmap(df):
     return _apply_theme(fig)
 
 def create_archetype_parallel_coords_risk(df):
-    # Logical flow: Stress → Cog Load → Fatigue → Error (cause → effect sequence)
+    # Logical flow: Stress ΓåÆ Cog Load ΓåÆ Fatigue ΓåÆ Error (cause ΓåÆ effect sequence)
     dims = ['Stress_Level_1_10', 'Cognitive_Load_Score', 'Decision_Fatigue_Score', 'Error_Rate']
     cols = dims + ['Cluster_ID']
     df_plot = df.dropna(subset=cols)
@@ -644,7 +644,7 @@ def create_archetype_parallel_coords_risk(df):
     fig = px.parallel_coordinates(df_plot, color='Cluster_ID', dimensions=dims,
                                   color_continuous_scale=colors,
                                   labels=short_labels,
-                                  title='Archetype Risk Profiles (Stress → Load → Fatigue → Error)')
+                                  title='Archetype Risk Profiles (Stress ΓåÆ Load ΓåÆ Fatigue ΓåÆ Error)')
     fig = _apply_theme(fig)
     fig.update_layout(margin=dict(t=100, b=60, l=80, r=80), coloraxis_showscale=False)
     fig.update_coloraxes(showscale=False)
@@ -658,7 +658,7 @@ def create_archetype_parallel_coords_risk(df):
     return fig
 
 def create_archetype_parallel_coords_behaviour(df):
-    # Logical flow: Sleep → Mood → Social Engagement → Breaks (recovery → output sequence)
+    # Logical flow: Sleep ΓåÆ Mood ΓåÆ Social Engagement ΓåÆ Breaks (recovery ΓåÆ output sequence)
     dims = ['Sleep_Hours_Last_Night', 'Mid_Shift_Mood_Score', 'Peer_Collaboration_Pings',
             'Break_Room_Entry_Count']
     cols = dims + ['Cluster_ID']
@@ -678,7 +678,7 @@ def create_archetype_parallel_coords_behaviour(df):
     fig = px.parallel_coordinates(df_plot, color='Cluster_ID', dimensions=dims,
                                   color_continuous_scale=colors,
                                   labels=short_labels,
-                                  title='Archetype Lifestyle (Sleep → Mood → Collaboration → Breaks)')
+                                  title='Archetype Lifestyle (Sleep ΓåÆ Mood ΓåÆ Collaboration ΓåÆ Breaks)')
     fig = _apply_theme(fig)
     fig.update_layout(margin=dict(t=100, b=60, l=80, r=80), coloraxis_showscale=False)
     fig.update_coloraxes(showscale=False)
@@ -689,4 +689,174 @@ def create_archetype_parallel_coords_behaviour(df):
                                  line=dict(color=colors[i % len(colors)], width=4),
                                  name=name))
     fig.update_layout(showlegend=True, legend_title_text='Archetype')
+    return fig
+
+
+# -- WORKLOAD + CONFOUNDING -- Memo brushing island --
+
+PCP_DIMENSIONS = [
+    "Hours_Awake",
+    "Sleep_Hours_Last_Night",
+    "Decisions_Made",
+    "Task_Switches",
+    "Avg_Decision_Time_sec",
+    "Stress_Level_1_10",
+    "Cognitive_Load_Score",
+    "Error_Rate",
+    "Decision_Fatigue_Score",
+]
+
+
+def create_brushable_pcp(df, selection=None, sample_size=2500):
+    """Brushable PCP. Persists constraintranges from the selection store."""
+    try:
+        from .theme import apply_theme, FATIGUE_COLORS as fatigue_colors
+    except ImportError:
+        from theme import apply_theme, FATIGUE_COLORS as fatigue_colors
+    if df is None or df.empty:
+        return go.Figure()
+
+    sample = df.sample(min(sample_size, len(df)), random_state=42)
+
+    fatigue_code = {"Low": 0, "Medium": 1, "High": 2}
+    color_vals = sample["Fatigue_Level"].map(fatigue_code).fillna(1).astype(int)
+
+    persisted = {}
+    if selection and selection.get("filters"):
+        for f in selection["filters"]:
+            persisted[f["col"]] = f["ranges"]
+
+    dimensions = []
+    for col in PCP_DIMENSIONS:
+        if col not in df.columns:
+            continue
+        dim = dict(
+            label=col.replace("_", " "),
+            values=sample[col],
+            range=[float(df[col].min()), float(df[col].max())],
+        )
+        if col in persisted:
+            ranges = persisted[col]
+            dim["constraintrange"] = ranges[0] if len(ranges) == 1 else ranges
+        dimensions.append(dim)
+
+    fig = go.Figure(data=go.Parcoords(
+        line=dict(
+            color=color_vals,
+            colorscale=[[0, fatigue_colors["Low"]],
+                        [0.5, fatigue_colors["Moderate"]],
+                        [1, fatigue_colors["High"]]],
+            cmin=0, cmax=2, showscale=False,
+        ),
+        dimensions=dimensions,
+        labelfont=dict(size=10, color="#495057"),
+        tickfont=dict(size=9, color="#6c757d"),
+    ))
+    apply_theme(fig, height=240, show_legend=False)
+    return fig
+
+
+def _fit_line(x, y):
+    x = np.asarray(x, dtype=float); y = np.asarray(y, dtype=float)
+    keep = ~(np.isnan(x) | np.isnan(y))
+    x, y = x[keep], y[keep]
+    if len(x) < 5 or np.std(x) == 0 or np.std(y) == 0:
+        return None
+    slope, intercept = np.polyfit(x, y, 1)
+    x_line = np.linspace(x.min(), x.max(), 50)
+    return x_line, slope * x_line + intercept, float(np.corrcoef(x, y)[0, 1] ** 2)
+
+
+def create_confounding_scatter(df, x_var, y_var, color_var, selection=None,
+                               sample_size=2500):
+    """Scatter + per-group regressions. Solid = full data, dashed = brushed subset."""
+    try:
+        from .theme import get_color_map, get_category_order, apply_theme, OKABE_ITO
+        from .selection import compute_mask, has_selection
+    except ImportError:
+        from theme import get_color_map, get_category_order, apply_theme, OKABE_ITO
+        from selection import compute_mask, has_selection
+
+    if df is None or df.empty:
+        return go.Figure()
+
+    color_map = get_color_map(color_var) or {}
+    order = get_category_order(color_var) or sorted(df[color_var].dropna().unique())
+    sample = df.sample(min(sample_size, len(df)), random_state=42)
+
+    fig = go.Figure()
+    for i, grp in enumerate(order):
+        sub = sample[sample[color_var] == grp]
+        if not len(sub):
+            continue
+        color = color_map.get(grp, OKABE_ITO[i % len(OKABE_ITO)])
+        fig.add_trace(go.Scatter(
+            x=sub[x_var], y=sub[y_var], mode="markers",
+            name=str(grp), legendgroup=str(grp),
+            marker=dict(size=5, color=color, opacity=0.4),
+        ))
+
+    overall = _fit_line(df[x_var], df[y_var])
+    if overall:
+        xs, ys, r2 = overall
+        fig.add_trace(go.Scatter(x=xs, y=ys, mode="lines",
+                                 line=dict(color="#1a1a1a", width=2.5),
+                                 name=f"Overall (R²={r2:.2f})"))
+    for i, grp in enumerate(order):
+        sub = df[df[color_var] == grp]
+        ln = _fit_line(sub[x_var], sub[y_var])
+        if ln:
+            xs, ys, _ = ln
+            color = color_map.get(grp, OKABE_ITO[i % len(OKABE_ITO)])
+            fig.add_trace(go.Scatter(x=xs, y=ys, mode="lines",
+                                     line=dict(color=color, width=2),
+                                     legendgroup=str(grp), showlegend=False))
+
+    if has_selection(selection):
+        mask = compute_mask(df, selection)
+        if mask.sum() > 10:
+            df_sel = df.loc[mask]
+            sel_overall = _fit_line(df_sel[x_var], df_sel[y_var])
+            if sel_overall:
+                xs, ys, r2 = sel_overall
+                fig.add_trace(go.Scatter(x=xs, y=ys, mode="lines",
+                                         line=dict(color="#1a1a1a", width=2, dash="dash"),
+                                         name=f"Selection (R²={r2:.2f})"))
+            for i, grp in enumerate(order):
+                sub = df_sel[df_sel[color_var] == grp]
+                ln = _fit_line(sub[x_var], sub[y_var])
+                if ln:
+                    xs, ys, _ = ln
+                    color = color_map.get(grp, OKABE_ITO[i % len(OKABE_ITO)])
+                    fig.add_trace(go.Scatter(x=xs, y=ys, mode="lines",
+                                             line=dict(color=color, width=2, dash="dash"),
+                                             legendgroup=str(grp), showlegend=False))
+
+    apply_theme(fig, height=300)
+    fig.update_layout(xaxis_title=x_var.replace("_", " "),
+                      yaxis_title=y_var.replace("_", " "),
+                      dragmode="select")
+    return fig
+
+
+def create_comparative_box(df, y_var, selection=None):
+    try:
+        from .theme import SELECTION_COLORS, NEUTRAL, apply_theme
+        from .selection import compute_mask, has_selection
+    except ImportError:
+        from theme import SELECTION_COLORS, NEUTRAL, apply_theme
+        from selection import compute_mask, has_selection
+
+    fig = go.Figure()
+    if has_selection(selection):
+        mask = compute_mask(df, selection)
+        fig.add_trace(go.Box(y=df.loc[mask, y_var], name="Selected",
+                             marker_color=SELECTION_COLORS["Selected"], boxmean=True))
+        fig.add_trace(go.Box(y=df.loc[~mask, y_var], name="Not selected",
+                             marker_color=SELECTION_COLORS["Not selected"], boxmean=True))
+    else:
+        fig.add_trace(go.Box(y=df[y_var], name="All data",
+                             marker_color=NEUTRAL, boxmean=True))
+    apply_theme(fig, height=250)
+    fig.update_layout(yaxis_title=y_var.replace("_", " "), showlegend=False)
     return fig

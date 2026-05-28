@@ -1,19 +1,37 @@
 from dash import Dash, Input, Output, State, ctx
+from dash.exceptions import PreventUpdate
 import dash_bootstrap_components as dbc
+
 try:
     from .data_loader import df
     from .layout import (
-        FILTER_ALL, GRAPH_IDS, WELLBEING_GRAPH_IDS, create_dashboard_page, create_layout,
-        create_tab_contents, get_zoom_axis_map, _all_filter_value_options, create_welcome_page,
+        FILTER_ALL,
+        GRAPH_IDS,
+        WELLBEING_GRAPH_IDS,
+        create_dashboard_page,
+        create_layout,
+        create_tab_contents,
+        get_zoom_axis_map,
+        _all_filter_value_options,
+        create_welcome_page,
         is_filter_active,
     )
+    from .selection import EMPTY_SELECTION, selection_from_pcp_figure, selection_from_scatter_brush
 except ImportError:
     from data_loader import df
     from layout import (
-        FILTER_ALL, GRAPH_IDS, WELLBEING_GRAPH_IDS, create_dashboard_page, create_layout,
-        create_tab_contents, get_zoom_axis_map, _all_filter_value_options, create_welcome_page,
+        FILTER_ALL,
+        GRAPH_IDS,
+        WELLBEING_GRAPH_IDS,
+        create_dashboard_page,
+        create_layout,
+        create_tab_contents,
+        get_zoom_axis_map,
+        _all_filter_value_options,
+        create_welcome_page,
         is_filter_active,
     )
+    from selection import EMPTY_SELECTION, selection_from_pcp_figure, selection_from_scatter_brush
 
 # Initialize the Dash app with a Bootstrap theme
 app = Dash(__name__, external_stylesheets=[dbc.themes.FLATLY], suppress_callback_exceptions=True)
@@ -53,7 +71,6 @@ def update_dynamic_filter_values(filter_column):
 @app.callback(
     Output("tab-1-content", "children"),
     Output("tab-2-content", "children"),
-    Output("tab-3-content", "children"),
     Output("tab-4-content", "children"),
     Input("color-by-filter", "value"),
     Input("target-variable-filter", "value"),
@@ -77,13 +94,81 @@ def update_dashboard(color_by, target_col, filter_column, filter_values, *relayo
             density_axis_ranges = (_axis_range(relayout_data, "xaxis"), _axis_range(relayout_data, "yaxis"))
         filtered = apply_zoom_filter(filtered, triggered_id, relayout_data, target_col or "Error_Rate")
 
-    return create_tab_contents(
+    wb, risk, workload, interv = create_tab_contents(
         filtered,
         color_by=color_by or "System_Recommendation",
         target_col=target_col or "Error_Rate",
         density_axis_ranges=density_axis_ranges,
         wellbeing_df=df,
     )
+    return wb, risk, interv
+
+
+@app.callback(
+    Output("selection-store", "data", allow_duplicate=True),
+    Input("reset-selection-btn", "n_clicks"),
+    prevent_initial_call=True,
+)
+def reset_selection(_):
+    return EMPTY_SELECTION
+
+
+@app.callback(
+    Output("selection-store", "data", allow_duplicate=True),
+    Input("pcp-graph", "restyleData"),
+    State("pcp-graph", "figure"),
+    prevent_initial_call=True,
+)
+def pcp_writes_selection(_, figure):
+    return selection_from_pcp_figure(figure)
+
+
+@app.callback(
+    Output("pcp-graph", "figure"),
+    Input("selection-store", "data"),
+)
+def render_pcp(selection):
+    if selection and selection.get("source") == "pcp":
+        raise PreventUpdate
+    try:
+        from .components import create_brushable_pcp
+    except ImportError:
+        from components import create_brushable_pcp
+    return create_brushable_pcp(df, selection=selection)
+
+
+@app.callback(
+    Output("conf-scatter", "figure"),
+    Output("comp-box", "figure"),
+    Input("selection-store", "data"),
+    Input("conf-x", "value"),
+    Input("target-variable-filter", "value"),
+    Input("color-by-filter", "value"),
+)
+def render_three_charts(selection, conf_x, target_var, color_var):
+    try:
+        from .components import create_confounding_scatter, create_comparative_box
+    except ImportError:
+        from components import create_confounding_scatter, create_comparative_box
+    y_var = target_var or "Error_Rate"
+    color = color_var or "System_Recommendation"
+    fig_scatter = create_confounding_scatter(df, conf_x, y_var, color, selection=selection)
+    fig_box = create_comparative_box(df, y_var, selection=selection)
+    return fig_scatter, fig_box
+
+
+@app.callback(
+    Output("selection-store", "data", allow_duplicate=True),
+    Input("conf-scatter", "selectedData"),
+    State("conf-x", "value"),
+    State("target-variable-filter", "value"),
+    prevent_initial_call=True,
+)
+def scatter_writes_selection(selected, x_col, y_col):
+    result = selection_from_scatter_brush(selected, x_col, y_col or "Error_Rate")
+    if not result.get("filters"):
+        raise PreventUpdate
+    return result
 
 
 def apply_zoom_filter(data, graph_id, relayout_data, target_col):
@@ -96,9 +181,9 @@ def apply_zoom_filter(data, graph_id, relayout_data, target_col):
 
     x_range = _axis_range(relayout_data, "xaxis")
     y_range = _axis_range(relayout_data, "yaxis")
-    if x_range and x_col in filtered and _is_numeric(filtered[x_col]):
+    if x_range and x_col in filtered.columns and _is_numeric(filtered[x_col]):
         filtered = filtered[filtered[x_col].between(x_range[0], x_range[1], inclusive="both")]
-    if y_range and y_col in filtered and _is_numeric(filtered[y_col]):
+    if y_range and y_col in filtered.columns and _is_numeric(filtered[y_col]):
         filtered = filtered[filtered[y_col].between(y_range[0], y_range[1], inclusive="both")]
     return filtered
 
@@ -129,7 +214,5 @@ def _is_numeric(series):
     return getattr(series, "dtype", None).kind in "biufc"
 
 
-# We provide a main execution block to allow running the app directly
 if __name__ == '__main__':
-    # Run the server on localhost port 8050
     app.run(debug=True, port=8050)
