@@ -18,6 +18,7 @@ wellbeing_sys_rec_colors = {
 sleep_group_colors = {'Poor Sleep': '#E74C3C', 'Adequate Sleep': '#F1C40F', 'Good Sleep': '#2ECC71'}
 okabe_ito = ['#E69F00', '#56B4E9', '#009E73', '#F0E442', '#0072B2', '#D55E00', '#CC79A7', '#000000']
 time_of_day_colors = {'Morning': '#FF9F1C', 'Afternoon': '#2EC4B6', 'Evening': '#7B68EE', 'Night': '#1B263B'}  # Warm sunrise / Teal / Indigo / Dark navy
+red_cream_scale = ['#FFF7EC', '#FEE8C8', '#FDBB84', '#FC8D59', '#D7301F', '#7F0000']
 cluster_map = {0: 'Collaborative / Balanced', 1: 'Stressed / Isolated', 2: 'Low Engagement'}
 CATEGORY_ORDERS = {
     'Fatigue_Level': ['Low', 'Medium', 'High'],
@@ -514,17 +515,41 @@ def create_gym_sleep_load_heatmap(df, target_col='Cognitive_Load_Score'):
     df_plot = df.dropna(subset=['Gym_Group', 'Sleep_Group', target_col])
     df_plot, display_col, display_label = _metric_frame(df_plot, target_col)
     df_plot = _prepare_ordered_categories(df_plot)
-    fig = px.density_heatmap(df_plot, x='Gym_Group', y='Sleep_Group',
-                             z=display_col, histfunc='avg',
-                             color_continuous_scale='Blues',
-                             category_orders=_category_orders('Gym_Group', 'Sleep_Group'),
-                             labels={'Gym_Group': 'Gym Activity', 'Sleep_Group': 'Sleep Group',
-                                     display_col: display_label},
-                             title=f'Gym Activity and Sleep vs {display_label}')
+    agg = df_plot.groupby(['Sleep_Group', 'Gym_Group'], observed=False)[display_col].mean().reset_index()
+    pivot = (
+        agg.pivot(index='Sleep_Group', columns='Gym_Group', values=display_col)
+        .reindex(index=CATEGORY_ORDERS['Sleep_Group'], columns=CATEGORY_ORDERS['Gym_Group'])
+    )
+    finite_values = pivot.to_numpy(dtype=float)
+    finite_values = finite_values[~np.isnan(finite_values)]
+    zmin, zmax = None, None
+    if len(finite_values):
+        zmin = float(np.percentile(finite_values, 5))
+        zmax = float(np.percentile(finite_values, 95))
+        if zmin == zmax:
+            zmin, zmax = float(finite_values.min()), float(finite_values.max())
+
+    fig = go.Figure(data=go.Heatmap(
+        x=list(pivot.columns),
+        y=list(pivot.index),
+        z=pivot.to_numpy(),
+        zmin=zmin,
+        zmax=zmax,
+        colorscale=[
+            [0.0, "#F7FBFF"],
+            [0.18, "#C7D2FE"],
+            [0.38, "#60A5FA"],
+            [0.62, "#2563EB"],
+            [0.82, "#7C3AED"],
+            [1.0, "#3B0764"],
+        ],
+        colorbar=dict(title=f"Average {display_label}"),
+        hovertemplate="Gym Activity: %{x}<br>Sleep Group: %{y}<br>Average " + display_label + ": %{z:.2f}<extra></extra>",
+    ))
+    fig.update_layout(title=f'Gym Activity and Sleep vs {display_label}')
     fig = _apply_theme(fig)
-    _set_average_colorbar(fig, display_label)
-    fig.update_xaxes(categoryorder='array', categoryarray=CATEGORY_ORDERS['Gym_Group'])
-    fig.update_yaxes(categoryorder='array', categoryarray=CATEGORY_ORDERS['Sleep_Group'])
+    fig.update_xaxes(title_text='Gym Activity', categoryorder='array', categoryarray=CATEGORY_ORDERS['Gym_Group'])
+    fig.update_yaxes(title_text='Sleep Group', categoryorder='array', categoryarray=CATEGORY_ORDERS['Sleep_Group'])
     return fig
 
 def create_sleep_quality_boxplot(df, color_by=None, target_col='Mid_Shift_Mood_Score'):
@@ -559,7 +584,7 @@ def create_perfect_storm_heatmap(df, target_col='Error_Rate'):
     df_plot = _prepare_ordered_categories(df_plot)
     fig = px.density_heatmap(df_plot, x='Caffeine_Group', y='Hydration_Group',
                              z=display_col, histfunc='avg',
-                             color_continuous_scale='Viridis',
+                             color_continuous_scale=red_cream_scale,
                              category_orders=_category_orders('Caffeine_Group', 'Hydration_Group'),
                              labels={'Caffeine_Group': 'Caffeine Intake',
                                      'Hydration_Group': 'Hydration Balance',
@@ -592,7 +617,7 @@ def create_avg_risk_profile_bar(df, target_col='Error_Rate'):
     df_plot = _prepare_ordered_categories(df_plot)
     fig = px.density_heatmap(df_plot, x='Caffeine_Group', y='Sugar_Group',
                  z=display_col, histfunc='avg',
-                 color_continuous_scale='OrRd',
+                 color_continuous_scale=red_cream_scale,
                  category_orders=_category_orders('Caffeine_Group', 'Sugar_Group'),
                  labels={'Caffeine_Group': 'Caffeine Intake',
                          'Sugar_Group': 'Snack Reliance',
@@ -613,6 +638,7 @@ def create_intervention_streamgraph(df, color_by=None, target_col='Error_Rate'):
     fig = px.line(
         agg, x='Gym_Group', y=display_col, color='Sleep_Group',
         markers=True,
+        custom_data=['Sleep_Group'],
         color_discrete_map=sleep_group_colors,
         category_orders=_category_orders('Gym_Group', 'Sleep_Group'),
         labels={'Gym_Group': 'Gym Activity',

@@ -300,7 +300,6 @@ def create_filter_sidebar(df):
             "borderRadius": "8px",
             "position": "sticky",
             "top": "58px",
-            "marginTop": "48px",
             "maxHeight": "calc(100vh - 120px)",
             "overflowY": "auto",
         },
@@ -313,23 +312,10 @@ def create_tab_contents(
     target_col="Error_Rate",
     density_axis_ranges=None,
     wellbeing_df=None,
+    tabs=None,
 ):
+    tabs = set(tabs or ["wellbeing", "risk", "workload", "intervention"])
     overall = wellbeing_df if wellbeing_df is not None else df
-
-    fig_wellbeing_1 = create_fatigue_distribution_bar(overall, color_by="Fatigue_Level")
-    fig_wellbeing_2 = create_wellbeing_stress_sleep_heatmap(overall)
-    fig_wellbeing_3 = create_sleep_fatigue_boxplot(overall)
-    fig_wellbeing_4 = create_wellbeing_system_rec_stacked_bar(overall)
-
-    fig_risk_1 = create_load_error_scatter(df, color_by=color_by, target_col=target_col)
-    fig_risk_2 = create_stress_fatigue_quadrant(df, target_col=target_col, axis_ranges=density_axis_ranges)
-    fig_risk_3 = create_sleep_fatigue_trend(df, color_by=color_by, target_col=target_col)
-    fig_recovery_2 = create_gym_sleep_load_heatmap(df, target_col=target_col)
-
-    fig_intervention_line = create_intervention_streamgraph(df, color_by=color_by, target_col=target_col)
-    fig_intervention_scatter = create_risk_index_scatter(df, color_by=color_by, target_col=target_col)
-    fig_intervention_context = create_perfect_storm_heatmap(df, target_col=target_col)
-    fig_intervention_bar = create_avg_risk_profile_bar(df, target_col=target_col)
 
     tab_bg = {
         "wellbeing": "linear-gradient(160deg, #e8f5e9 0%, #c8e6c9 100%)",
@@ -345,48 +331,68 @@ def create_tab_contents(
             "padding": "6px",
         })
 
-    wellbeing_tab = tab_wrap([
-        dbc.Row([
-            dbc.Col(create_chart_card(fig_wellbeing_1, "wellbeing-fatigue"), md=6),
-            dbc.Col(create_chart_card(fig_wellbeing_2, "wellbeing-breakdown"), md=6),
-        ], className="g-2 mb-2"),
-        dbc.Row([
-            dbc.Col(create_chart_card(fig_wellbeing_3, "wellbeing-sleep-target"), md=6),
-            dbc.Col(create_chart_card(fig_wellbeing_4, "wellbeing-mood-target"), md=6),
-        ], className="g-2"),
-    ], "wellbeing")
+    wellbeing_tab = None
+    if "wellbeing" in tabs:
+        fig_wellbeing_1 = create_fatigue_distribution_bar(overall, color_by="Fatigue_Level")
+        fig_wellbeing_2 = create_wellbeing_stress_sleep_heatmap(overall)
+        fig_wellbeing_3 = create_sleep_fatigue_boxplot(overall)
+        fig_wellbeing_4 = create_wellbeing_system_rec_stacked_bar(overall)
+        wellbeing_tab = tab_wrap([
+            dbc.Row([
+                dbc.Col(create_chart_card(fig_wellbeing_1, "wellbeing-fatigue"), md=6),
+                dbc.Col(create_chart_card(fig_wellbeing_2, "wellbeing-breakdown"), md=6),
+            ], className="g-2 mb-2"),
+            dbc.Row([
+                dbc.Col(create_chart_card(fig_wellbeing_3, "wellbeing-sleep-target"), md=6),
+                dbc.Col(create_chart_card(fig_wellbeing_4, "wellbeing-mood-target"), md=6),
+            ], className="g-2"),
+        ], "wellbeing")
 
-    risk_recovery_tab = tab_wrap([
-        dbc.Row([
-            dbc.Col(create_chart_card(fig_risk_1, "risk-load-target"), md=6),
-            dbc.Col(create_chart_card(fig_risk_2, "risk-stress-target"), md=6),
-        ], className="g-2 mb-2"),
-        dbc.Row([
-            dbc.Col(create_chart_card(fig_risk_3, "risk-sleep-target"), md=6),
-            dbc.Col(create_chart_card(fig_recovery_2, "risk-recovery-target"), md=6),
-        ], className="g-2"),
-    ], "risk_recovery")
+    risk_recovery_tab = None
+    if "risk" in tabs:
+        fig_risk_1 = create_load_error_scatter(df, color_by=color_by, target_col=target_col)
+        fig_risk_2 = create_stress_fatigue_quadrant(df, target_col=target_col, axis_ranges=density_axis_ranges)
+        fig_risk_3 = create_sleep_fatigue_trend(df, color_by=color_by, target_col=target_col)
+        fig_recovery_2 = create_gym_sleep_load_heatmap(df, target_col=target_col)
+        risk_recovery_tab = tab_wrap([
+            dbc.Row([
+                dbc.Col(create_chart_card(fig_risk_1, "risk-load-target"), md=6),
+                dbc.Col(create_chart_card(fig_risk_2, "risk-stress-target"), md=6),
+            ], className="g-2 mb-2"),
+            dbc.Row([
+                dbc.Col(create_chart_card(fig_risk_3, "risk-sleep-target"), md=6),
+                dbc.Col(create_chart_card(fig_recovery_2, "risk-recovery-target"), md=6),
+            ], className="g-2"),
+        ], "risk_recovery")
 
-    workload_memo_tab = tab_wrap([
-        dbc.Row([
-            dbc.Col(_memo_graph_card("pcp-graph", "240px"), md=12),
-        ], className="g-2 mb-2"),
-        dbc.Row([
-            dbc.Col(_memo_graph_card("conf-scatter", "300px"), md=8),
-            dbc.Col(_memo_graph_card("comp-box", "300px"), md=4),
-        ], className="g-2"),
-    ], "workload_memo")
+    workload_memo_tab = None
+    if "workload" in tabs:
+        workload_memo_tab = tab_wrap([
+            dbc.Row([
+                dbc.Col(_memo_graph_card("pcp-graph", "240px"), md=12),
+            ], className="g-2 mb-2"),
+            dbc.Row([
+                dbc.Col(_memo_graph_card("conf-scatter", "300px"), md=8),
+                dbc.Col(_memo_graph_card("comp-box", "300px"), md=4),
+            ], className="g-2"),
+        ], "workload_memo")
 
-    recovery_intervention_tab = tab_wrap([
-        dbc.Row([
-            dbc.Col(create_chart_card(fig_intervention_context, "intervention-context"), md=6),
-            dbc.Col(create_chart_card(fig_intervention_line, "intervention-line"), md=6),
-        ], className="g-2 mb-2"),
-        dbc.Row([
-            dbc.Col(create_chart_card(fig_intervention_scatter, "intervention-scatter"), md=6),
-            dbc.Col(create_chart_card(fig_intervention_bar, "intervention-rec-target"), md=6),
-        ], className="g-2"),
-    ], "recovery_intervention")
+    recovery_intervention_tab = None
+    if "intervention" in tabs:
+        fig_intervention_line = create_intervention_streamgraph(df, color_by=color_by, target_col=target_col)
+        fig_intervention_scatter = create_risk_index_scatter(df, color_by=color_by, target_col=target_col)
+        fig_intervention_context = create_perfect_storm_heatmap(df, target_col=target_col)
+        fig_intervention_bar = create_avg_risk_profile_bar(df, target_col=target_col)
+        recovery_intervention_tab = tab_wrap([
+            dbc.Row([
+                dbc.Col(create_chart_card(fig_intervention_context, "intervention-context"), md=6),
+                dbc.Col(create_chart_card(fig_intervention_line, "intervention-line"), md=6),
+            ], className="g-2 mb-2"),
+            dbc.Row([
+                dbc.Col(create_chart_card(fig_intervention_scatter, "intervention-scatter"), md=6),
+                dbc.Col(create_chart_card(fig_intervention_bar, "intervention-rec-target"), md=6),
+            ], className="g-2"),
+        ], "recovery_intervention")
 
     return wellbeing_tab, risk_recovery_tab, workload_memo_tab, recovery_intervention_tab
 
@@ -474,6 +480,32 @@ def create_welcome_page(login_error=False):
 
 
 def create_dashboard_page(df):
+    dashboard_header = html.Div(
+        [
+            html.H1(
+                "Neuropulse",
+                className="mb-0 fw-bold",
+                style={
+                    "color": "#ffffff",
+                    "letterSpacing": "0",
+                    "textShadow": "0 2px 12px rgba(0,0,0,0.4)",
+                    "fontSize": "1.65rem",
+                    "lineHeight": "1.05",
+                },
+            ),
+            html.Div(
+                "Wellness • Welfare • Workforce",
+                className="fw-semibold",
+                style={
+                    "color": "#dbeafe",
+                    "letterSpacing": "0",
+                    "fontSize": "0.92rem",
+                },
+            ),
+        ],
+        className="mb-2",
+    )
+
     return dbc.Container(
         fluid=True,
         style={
@@ -487,50 +519,38 @@ def create_dashboard_page(df):
             dcc.Store(id="selection-store", data={"source": None, "filters": []}),
             dbc.Row([
                 dbc.Col(
-                    html.Div(
-                        [
-                            html.H1(
-                                "Neuropulse",
-                                className="text-center mb-0 fw-bold",
-                                style={
-                                    "color": "#ffffff",
-                                    "letterSpacing": "0",
-                                    "textShadow": "0 2px 12px rgba(0,0,0,0.4)",
-                                    "fontSize": "1.65rem",
-                                    "lineHeight": "1.05",
-                                },
-                            ),
-                            html.Div(
-                                "Wellness • Welfare • Workforce",
-                                className="text-center fw-semibold",
-                                style={
-                                    "color": "#dbeafe",
-                                    "letterSpacing": "0",
-                                    "fontSize": "0.92rem",
-                                },
-                            ),
-                        ]
-                    )
+                    [
+                        dashboard_header,
+                        html.Div(create_filter_sidebar(df), style={"marginTop": "48px"}),
+                    ],
+                    width=12,
+                    lg=3,
+                    xl=2,
+                    className="mb-4 d-flex flex-column",
                 ),
                 dbc.Col(
-                    dbc.Button(
-                        "Clear selection",
-                        id="reset-selection-btn",
-                        color="light",
-                        size="sm",
-                        className="mt-2",
-                        style={"fontSize": "12px"},
-                    ),
-                    width="auto",
+                    [
+                        html.Div(
+                            dbc.Button(
+                                "Clear selection",
+                                id="reset-selection-btn",
+                                color="light",
+                                size="sm",
+                                style={"fontSize": "12px"},
+                            ),
+                            className="d-flex justify-content-end",
+                            style={"height": "44px", "alignItems": "flex-start"},
+                        ),
+                        html.Div(id="dashboard-tabs", children=create_tabs_content(df)),
+                    ],
+                    width=12,
+                    lg=9,
+                    xl=10,
                 ),
-            ], align="center"),
-            dbc.Row([
-                dbc.Col(create_filter_sidebar(df), width=12, lg=3, xl=2, className="mb-4"),
-                dbc.Col(html.Div(id="dashboard-tabs", children=create_tabs_content(df)), width=12, lg=9, xl=10),
             ], className="g-4"),
         ],
     )
 
 
 def create_layout(df):
-    return html.Div(id="page-content", children=create_welcome_page())
+    return html.Div(id="page-content", children=create_dashboard_page(df))
