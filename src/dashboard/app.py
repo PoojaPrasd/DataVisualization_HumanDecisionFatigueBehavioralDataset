@@ -89,11 +89,22 @@ def update_dashboard(color_by, target_col, filter_column, filter_values, reset_c
             filtered,
             color_by=color_by or "System_Recommendation",
             target_col=target_col or "Error_Rate",
+            wellbeing_df=df,
             tabs={"wellbeing", "risk", "intervention"},
         )
         return wb, risk, interv
 
     target_tabs = None
+    if triggered_id in WELLBEING_GRAPH_IDS:
+        wb, _, _, _ = create_tab_contents(
+            filtered,
+            color_by=color_by or "System_Recommendation",
+            target_col=target_col or "Error_Rate",
+            wellbeing_df=df,
+            tabs={"wellbeing"},
+        )
+        return wb, no_update, no_update
+
     if triggered_id in GRAPH_IDS:
         target_tabs = {_graph_tab(triggered_id)}
         graph_index = GRAPH_IDS.index(triggered_id)
@@ -119,7 +130,7 @@ def update_dashboard(color_by, target_col, filter_column, filter_values, reset_c
         color_by=color_by or "System_Recommendation",
         target_col=target_col or "Error_Rate",
         density_axis_ranges=density_axis_ranges,
-        wellbeing_df=filtered if triggered_id in WELLBEING_GRAPH_IDS else df,
+        wellbeing_df=df,
         tabs=render_tabs,
     )
     return wb or no_update, risk or no_update, interv or no_update
